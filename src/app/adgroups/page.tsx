@@ -3,18 +3,12 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useSettings } from '@/lib/contexts/SettingsContext'
 import { AdGroupMetric } from '@/lib/types'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/utils'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { MetricsChart } from '@/components/MetricsChart'
+import { COLORS } from '@/lib/config'
 import {
     TrendingUp,
     MousePointer,
@@ -294,71 +288,22 @@ export default function AdGroupsPage() {
 
                 {/* Chart */}
                 <Card className="mb-12 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-                    <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
-                        <div className="flex items-center">
-                            <BarChart3 className="w-6 h-6 text-blue-600 mr-3" />
-                            <CardTitle className="text-xl text-gray-800">Performance Over Time</CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-8">
+                    <CardContent className="p-6">
                         {chartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={400}>
-                                <LineChart data={chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                    <XAxis
-                                        dataKey="date"
-                                        stroke="#64748b"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                    />
-                                    <YAxis
-                                        yAxisId="left"
-                                        stroke="#64748b"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                    />
-                                    <YAxis
-                                        yAxisId="right"
-                                        orientation="right"
-                                        stroke="#64748b"
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                    />
-                                    <Tooltip
-                                        formatter={(value: any, name: any) => typeof value === 'number' ? (name === 'cost' || name === 'value' ? formatCurrency(value, settings.currency) : formatNumber(value)) : value}
-                                        contentStyle={{
-                                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                            border: 'none',
-                                            borderRadius: '12px',
-                                            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
-                                        }}
-                                    />
-                                    <Legend />
-                                    <Line
-                                        yAxisId="left"
-                                        type="monotone"
-                                        dataKey="clicks"
-                                        stroke="#3b82f6"
-                                        strokeWidth={3}
-                                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                                        activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
-                                        name="Clicks"
-                                    />
-                                    <Line
-                                        yAxisId="right"
-                                        type="monotone"
-                                        dataKey="cost"
-                                        stroke="#10b981"
-                                        strokeWidth={3}
-                                        dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-                                        activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2, fill: '#fff' }}
-                                        name="Cost"
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            <MetricsChart
+                                chartTitle="Ad Group Performance Over Time"
+                                data={chartData}
+                                metric1={{
+                                    key: 'clicks',
+                                    label: 'Clicks',
+                                    color: COLORS.primary,
+                                }}
+                                metric2={{
+                                    key: 'cost',
+                                    label: 'Cost',
+                                    color: COLORS.secondary,
+                                }}
+                            />
                         ) : (
                             <div className="text-center py-20">
                                 <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />

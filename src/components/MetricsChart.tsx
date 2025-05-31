@@ -1,306 +1,331 @@
-// src/components/MetricsChart.tsx
-
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import * as d3 from 'd3'
-import { Card } from '@/components/ui/card'
-import { format, isFirstDayOfMonth } from 'date-fns'
+import { useState, useMemo } from 'react'
+import {
+    Area,
+    AreaChart,
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Legend,
+    Line,
+    LineChart as RechartsLineChart, // Renamed to avoid conflict
+    ResponsiveContainer,
+    XAxis,
+    YAxis,
+} from 'recharts'
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card'
+import {
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+    type ChartConfig,
+} from '@/components/ui/chart'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { LineChartIcon, BarChartBigIcon, AreaChartIcon } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
 import { formatCurrencyForAxis, formatConversionsForAxis } from '@/lib/utils'
 
-type ChartType = 'line' | 'bar'
+type ChartVariant = 'line' | 'bar' | 'area'
 
-interface ChartData {
-  date: string
-  [key: string]: any
+interface ChartDataItem {
+    date: string // Expecting 'YYYY-MM-DD'
+    [key: string]: any
+}
+
+interface MetricConfig {
+    key: string
+    label: string
+    color: string
 }
 
 interface MetricsChartProps {
-  data: ChartData[]
-  metric1: {
-    key: string
-    label: string
-    color: string
-    format: (value: number) => string
-  }
-  metric2?: {
-    key: string
-    label: string
-    color: string
-    format: (value: number) => string
-  }
-  chartType?: ChartType
-  barColors?: {
-    [key: string]: (value: number) => string
-  }
-  hideControls?: boolean
+    data: ChartDataItem[]
+    metric1: MetricConfig
+    metric2?: MetricConfig
+    chartType?: ChartVariant
+    chartTitle?: string
+    hideControls?: boolean
 }
 
 export function MetricsChart({
-  data,
-  metric1,
-  metric2,
-  chartType: initialChartType = 'line',
-  barColors,
-  hideControls = false
+    data: rawData,
+    metric1,
+    metric2,
+    chartType: initialChartType = 'area',
+    chartTitle,
+    hideControls = false,
 }: MetricsChartProps) {
-  const svgRef = useRef<SVGSVGElement>(null)
-  const [currentChartType, setCurrentChartType] = useState<ChartType>(initialChartType)
+    const [currentChartType, setCurrentChartType] =
+        useState<ChartVariant>(initialChartType)
 
-  useEffect(() => {
-    if (!data.length || !svgRef.current) return
+    const processedData = useMemo(() => {
+        return rawData
+            .map((item) => ({
+                ...item,
+                timestamp: parseISO(item.date).getTime(),
+            }))
+            .sort((a, b) => a.timestamp - b.timestamp)
+    }, [rawData])
 
-    // Clear previous chart
-    d3.select(svgRef.current).selectAll('*').remove()
+    const chartConfig = useMemo(() => {
+        const config: ChartConfig = {}
+        if (metric1) {
+            config[metric1.key] = {
+                label: metric1.label,
+                color: metric1.color,
+            }
+        }
+        if (metric2) {
+            config[metric2.key] = {
+                label: metric2.label,
+                color: metric2.color,
+            }
+        }
+        return config
+    }, [metric1, metric2])
 
-    // Setup dimensions
-    const margin = { top: 20, right: 60, bottom: 40, left: 60 }
-    const width = svgRef.current.clientWidth - margin.left - margin.right
-    const height = 400 - margin.top - margin.bottom
+    const xAxisTickFormatter = (timestamp: number) => {
+        return format(new Date(timestamp), 'MMM d')
+    }
 
-    const svg = d3.select(svgRef.current)
-      .append('g')
-      .attr('transform', `translate(${margin.left},${margin.top})`)
+    const yAxisTickFormatter = (value: number, key?: string) => {
+        if (!key) return value.toLocaleString()
+        // This can be expanded based on metric keys if needed
+        if (key.includes('cost') || key.includes('value') || key.includes('CPC') || key.includes('CPA') || key.includes('AOV')) {
+            return formatCurrencyForAxis(value, '$')
+        }
+        if (key.includes('conv')) {
+            return formatConversionsForAxis(value)
+        }
+        if (key.includes('CTR') || key.includes('CvR') || key.includes('imprShare') || key.includes('lost')) {
+            return `${Math.round(value)}%`
+        }
+        return value.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    }
 
-    // Parse dates and filter labels to show only first of month
-    const dates = data.map(d => new Date(d.date)).sort((a, b) => a.getTime() - b.getTime())
-    const filteredDates = dates.filter((d, i) =>
-      isFirstDayOfMonth(d) || i === 0 || i === dates.length - 1
-    )
 
-    // Calculate tick values based on data length
-    const getTickValues = () => {
-      if (data.length <= 14) return dates;  // Show all dates if 2 weeks or less
-      if (data.length <= 31) return dates.filter((_, i) => i % 2 === 0);  // Show every other date if month or less
-      return filteredDates;  // Show first of month for longer periods
+    const renderChart = () => {
+        const commonXAxis = (
+            <XAxis
+                dataKey="timestamp"
+                tickFormatter={xAxisTickFormatter}
+                stroke="hsl(var(--foreground))"
+                axisLine={{ stroke: "hsl(var(--border))" }}
+                tickLine={{ stroke: "hsl(var(--border))" }}
+                tick={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                tickMargin={12}
+                angle={processedData.length > 45 ? -45 : 0}
+                textAnchor={processedData.length > 45 ? 'end' : 'middle'}
+                height={processedData.length > 45 ? 70 : 40}
+                dy={processedData.length > 45 ? 5 : 0}
+                minTickGap={5}
+                interval="preserveStartEnd"
+            />
+        )
+
+        const commonYAxis1 = (
+            <YAxis
+                yAxisId="left"
+                stroke={metric1.color}
+                axisLine={{ stroke: "hsl(var(--border))" }}
+                tickLine={{ stroke: "hsl(var(--border))" }}
+                tickFormatter={(value) => yAxisTickFormatter(value, metric1.key)}
+                tickMargin={8}
+            />
+        )
+
+        const commonYAxis2 = metric2 ? (
+            <YAxis
+                yAxisId="right"
+                orientation="right"
+                stroke={metric2.color}
+                axisLine={{ stroke: "hsl(var(--border))" }}
+                tickLine={{ stroke: "hsl(var(--border))" }}
+                tickFormatter={(value) => yAxisTickFormatter(value, metric2.key)}
+                tickMargin={8}
+            />
+        ) : null
+
+        const chartKey = `${currentChartType}-${processedData.length}-${metric1.key}-${metric2?.key}`;
+
+        const chartMargins = {
+            top: 10,
+            right: 30,
+            left: 20,
+            bottom: 10
+        };
+
+        switch (currentChartType) {
+            case 'line':
+                return (
+                    <RechartsLineChart data={processedData} key={chartKey} margin={chartMargins}>
+                        <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
+                        {commonXAxis}
+                        {commonYAxis1}
+                        {commonYAxis2}
+                        <ChartTooltip
+                            cursor={{ stroke: "hsl(var(--border))", strokeDasharray: "3 3" }}
+                            content={<ChartTooltipContent indicator="line" style={{ backgroundColor: "hsl(var(--card))", color: "hsl(var(--card-foreground))" }} />}
+                        />
+                        <Line
+                            yAxisId="left"
+                            dataKey={metric1.key}
+                            type="monotone"
+                            stroke={metric1.color}
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={false}
+                            name={metric1.label}
+                            animationDuration={50}
+                        />
+                        {metric2 && (
+                            <Line
+                                yAxisId="right"
+                                dataKey={metric2.key}
+                                type="monotone"
+                                stroke={metric2.color}
+                                strokeWidth={2}
+                                dot={false}
+                                activeDot={false}
+                                name={metric2.label}
+                                animationDuration={50}
+                            />
+                        )}
+                    </RechartsLineChart>
+                )
+            case 'bar':
+                return (
+                    <BarChart data={processedData} key={chartKey} margin={chartMargins}>
+                        <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
+                        {commonXAxis}
+                        {commonYAxis1}
+                        {commonYAxis2}
+                        <ChartTooltip
+                            cursor={false}
+                            content={<ChartTooltipContent indicator="dot" style={{ backgroundColor: "hsl(var(--card))", color: "hsl(var(--card-foreground))" }} />}
+                        />
+                        <Bar
+                            yAxisId="left"
+                            dataKey={metric1.key}
+                            fill={metric1.color}
+                            radius={[4, 4, 0, 0]}
+                            name={metric1.label}
+                            animationDuration={50}
+                        />
+                        {metric2 && (
+                            <Bar
+                                yAxisId="right"
+                                dataKey={metric2.key}
+                                fill={metric2.color}
+                                radius={[4, 4, 0, 0]}
+                                name={metric2.label}
+                                animationDuration={50}
+                            />
+                        )}
+                    </BarChart>
+                )
+            case 'area':
+                return (
+                    <AreaChart data={processedData} key={chartKey} margin={chartMargins}>
+                        <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
+                        {commonXAxis}
+                        {commonYAxis1}
+                        {commonYAxis2}
+                        <ChartTooltip
+                            cursor={{ stroke: "hsl(var(--border))", strokeDasharray: "3 3" }}
+                            content={<ChartTooltipContent indicator="line" style={{ backgroundColor: "hsl(var(--card))", color: "hsl(var(--card-foreground))" }} />}
+                        />
+                        <defs>
+                            <linearGradient id={`gradient-${metric1.key}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={metric1.color} stopOpacity={0.8} />
+                                <stop offset="95%" stopColor={metric1.color} stopOpacity={0.1} />
+                            </linearGradient>
+                            {metric2 && (
+                                <linearGradient id={`gradient-${metric2.key}`} x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={metric2.color} stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor={metric2.color} stopOpacity={0.1} />
+                                </linearGradient>
+                            )}
+                        </defs>
+                        <Area
+                            yAxisId="left"
+                            dataKey={metric1.key}
+                            type="monotone"
+                            stroke={metric1.color}
+                            fillOpacity={0.4}
+                            fill={`url(#gradient-${metric1.key})`}
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={false}
+                            name={metric1.label}
+                            animationDuration={50}
+                        />
+                        {metric2 && (
+                            <Area
+                                yAxisId="right"
+                                dataKey={metric2.key}
+                                type="monotone"
+                                stroke={metric2.color}
+                                fillOpacity={0.4}
+                                fill={`url(#gradient-${metric2.key})`}
+                                strokeWidth={2}
+                                dot={false}
+                                activeDot={false}
+                                name={metric2.label}
+                                animationDuration={50}
+                            />
+                        )}
+                    </AreaChart>
+                )
+            default:
+                return null
+        }
+    }
+
+    const handleChartTypeChange = (value: string) => {
+        if (value && (['line', 'bar', 'area'] as ChartVariant[]).includes(value as ChartVariant)) {
+            setCurrentChartType(value as ChartVariant);
+        }
     };
 
-    // Setup scales
-    const xScale = currentChartType === 'bar'
-      ? d3.scaleBand()
-        .domain(dates.map(d => format(d, 'MMM d')))
-        .range([0, width])
-        .padding(0.2)
-      : d3.scaleTime()
-        .domain(d3.extent(dates) as [Date, Date])
-        .range([0, width])
 
-    const xGroupScale = currentChartType === 'bar'
-      ? d3.scaleBand()
-        .domain(metric2 ? ['metric1', 'metric2'] : ['metric1'])
-        .range([0, (xScale as d3.ScaleBand<string>).bandwidth()])
-        .padding(0.1)
-      : null
-
-    const y1Scale = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d[metric1.key] as number) || 0])
-      .range([height, 0])
-      .nice()
-
-    let y2Scale
-    if (metric2) {
-      y2Scale = d3.scaleLinear()
-        .domain([0, d3.max(data, d => d[metric2.key] as number) || 0])
-        .range([height, 0])
-        .nice()
-    }
-
-    // Helper function to format y-axis ticks
-    const formatYAxisTick = (d: number, key: string) => {
-      // Check if the metric is cost or value (currency)
-      if (key.includes('cost') || key.includes('value') || key.includes('CPC') || key.includes('CPA') || key.includes('AOV')) {
-        return formatCurrencyForAxis(d, '$')
-      }
-      // Check if the metric is conversions
-      else if (key.includes('conv')) {
-        return formatConversionsForAxis(d)
-      }
-      // For percentage metrics
-      else if (key.includes('CTR') || key.includes('CvR') || key.includes('imprShare') || key.includes('lost')) {
-        return `${Math.round(d)}%`
-      }
-      // For other metrics (impressions, clicks)
-      return d.toLocaleString('en-US', { maximumFractionDigits: 0 })
-    }
-
-    // Add axes
-    svg.append('g')
-      .attr('transform', `translate(0,${height})`)
-      .call(
-        currentChartType === 'bar'
-          ? d3.axisBottom(xScale as d3.ScaleBand<string>)
-            .tickValues(getTickValues().map(d => format(d, 'MMM d')))
-          : d3.axisBottom(xScale as d3.ScaleTime<number, number>)
-            .tickFormat(d => format(d as Date, 'MMM d'))
-            .tickValues(getTickValues())
-      )
-      .call(g => g.select('.domain').attr('stroke', '#cbd5e1'))
-      .call(g => g.selectAll('.tick line').attr('stroke', '#cbd5e1'))
-      .call(g => g.selectAll('.tick text')
-        .attr('fill', '#64748b')
-        .style('text-anchor', 'end')
-        .attr('transform', 'rotate(-45)'))
-
-    svg.append('g')
-      .call(d3.axisLeft(y1Scale)
-        .ticks(5)
-        .tickFormat(d => formatYAxisTick(d as number, metric1.key)))
-      .call(g => g.select('.domain').attr('stroke', '#cbd5e1'))
-      .call(g => g.selectAll('.tick line').attr('stroke', '#cbd5e1'))
-      .call(g => g.selectAll('.tick text').attr('fill', '#64748b'))
-
-    if (metric2 && y2Scale) {
-      svg.append('g')
-        .attr('transform', `translate(${width},0)`)
-        .call(d3.axisRight(y2Scale)
-          .ticks(5)
-          .tickFormat(d => formatYAxisTick(d as number, metric2.key)))
-        .call(g => g.select('.domain').attr('stroke', '#cbd5e1'))
-        .call(g => g.selectAll('.tick line').attr('stroke', '#cbd5e1'))
-        .call(g => g.selectAll('.tick text').attr('fill', '#64748b'))
-    }
-
-    if (currentChartType === 'line') {
-      // Add lines
-      const line1 = d3.line<ChartData>()
-        .x(d => (xScale as d3.ScaleTime<number, number>)(new Date(d.date)))
-        .y(d => y1Scale(d[metric1.key] as number))
-
-      svg.append('path')
-        .datum(data)
-        .attr('fill', 'none')
-        .attr('stroke', metric1.color)
-        .attr('stroke-width', 2)
-        .attr('d', line1 as any) // Type assertion needed due to d3 typing limitations
-
-      if (metric2 && y2Scale) {
-        const line2 = d3.line<ChartData>()
-          .x(d => (xScale as d3.ScaleTime<number, number>)(new Date(d.date)))
-          .y(d => y2Scale(d[metric2.key] as number))
-
-        svg.append('path')
-          .datum(data)
-          .attr('fill', 'none')
-          .attr('stroke', metric2.color)
-          .attr('stroke-width', 2)
-          .attr('d', line2 as any) // Type assertion needed due to d3 typing limitations
-      }
-    } else {
-      // Add bars
-      const bars = svg.append('g')
-        .selectAll('g')
-        .data(data)
-        .join('g')
-        .attr('transform', d => `translate(${(xScale as d3.ScaleBand<string>)(format(new Date(d.date), 'MMM d'))},0)`)
-
-      // Add metric1 bars
-      bars.append('rect')
-        .attr('x', () => xGroupScale!('metric1') || 0)
-        .attr('y', d => y1Scale(d[metric1.key] as number))
-        .attr('width', xGroupScale!.bandwidth())
-        .attr('height', d => height - y1Scale(d[metric1.key] as number))
-        .attr('fill', d => barColors?.[metric1.key]?.((d as ChartData)[metric1.key] as number) || metric1.color)
-        .attr('opacity', 0.8)
-
-      // Add metric2 bars if exists
-      if (metric2 && y2Scale) {
-        bars.append('rect')
-          .attr('x', () => xGroupScale!('metric2') || 0)
-          .attr('y', d => y2Scale(d[metric2.key] as number))
-          .attr('width', xGroupScale!.bandwidth())
-          .attr('height', d => height - y2Scale(d[metric2.key] as number))
-          .attr('fill', d => barColors?.[metric2.key]?.((d as ChartData)[metric2.key] as number) || metric2.color)
-          .attr('opacity', 0.8)
-      }
-    }
-
-    // Add legend
-    const legend = svg.append('g')
-      .attr('transform', `translate(${width - 200}, -10)`)
-
-    const legendSymbol = currentChartType === 'line' ? 'line' : 'rect'
-
-    if (legendSymbol === 'line') {
-      legend.append('line')
-        .attr('x1', 0)
-        .attr('x2', 20)
-        .attr('stroke', metric1.color)
-        .attr('stroke-width', 2)
-    } else {
-      legend.append('rect')
-        .attr('width', 15)
-        .attr('height', 15)
-        .attr('fill', barColors?.[metric1.key]?.(data[0]?.[metric1.key] as number) || metric1.color)
-        .attr('opacity', 0.8)
-    }
-
-    legend.append('text')
-      .attr('x', 25)
-      .attr('y', legendSymbol === 'line' ? 4 : 12)
-      .text(metric1.label)
-      .attr('fill', '#64748b')
-      .style('font-size', '12px')
-
-    if (metric2) {
-      const legend2 = legend.append('g')
-        .attr('transform', 'translate(100, 0)')
-
-      if (legendSymbol === 'line') {
-        legend2.append('line')
-          .attr('x1', 0)
-          .attr('x2', 20)
-          .attr('stroke', metric2.color)
-          .attr('stroke-width', 2)
-      } else {
-        legend2.append('rect')
-          .attr('width', 15)
-          .attr('height', 15)
-          .attr('fill', barColors?.[metric2.key]?.(data[0]?.[metric2.key] as number) || metric2.color)
-          .attr('opacity', 0.8)
-      }
-
-      legend2.append('text')
-        .attr('x', 25)
-        .attr('y', legendSymbol === 'line' ? 4 : 12)
-        .text(metric2.label)
-        .attr('fill', '#64748b')
-        .style('font-size', '12px')
-    }
-  }, [data, metric1, metric2, currentChartType, barColors])
-
-  return (
-    <Card className="p-4">
-      {!hideControls && (
-        <div className="flex justify-end mb-4">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
-            <button
-              type="button"
-              onClick={() => setCurrentChartType('line')}
-              className={`px-4 py-2 text-sm font-medium border rounded-l-lg ${currentChartType === 'line'
-                ? 'bg-blue-50 text-blue-700 border-blue-700'
-                : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'
-                }`}
-            >
-              Line
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrentChartType('bar')}
-              className={`px-4 py-2 text-sm font-medium border rounded-r-lg ${currentChartType === 'bar'
-                ? 'bg-blue-50 text-blue-700 border-blue-700'
-                : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-100'
-                }`}
-            >
-              Bar
-            </button>
-          </div>
-        </div>
-      )}
-      <svg
-        ref={svgRef}
-        className="w-full"
-        style={{ height: '400px' }}
-      />
-    </Card>
-  )
-}
+    return (
+        <Card>
+            {chartTitle && (
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>{chartTitle}</CardTitle>
+                    {!hideControls && (
+                        <ToggleGroup
+                            type="single"
+                            value={currentChartType}
+                            onValueChange={handleChartTypeChange}
+                            aria-label="Chart type"
+                            size="sm"
+                        >
+                            <ToggleGroupItem value="line" aria-label="Line chart">
+                                <LineChartIcon className="h-4 w-4" />
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="bar" aria-label="Bar chart">
+                                <BarChartBigIcon className="h-4 w-4" />
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="area" aria-label="Area chart">
+                                <AreaChartIcon className="h-4 w-4" />
+                            </ToggleGroupItem>
+                        </ToggleGroup>
+                    )}
+                </CardHeader>
+            )}
+            <CardContent className="px-4 pt-4 pb-1 md:pb-2">
+                <ChartContainer config={chartConfig} className="w-full h-[400px]">
+                    {renderChart() || <div className="flex items-center justify-center h-full text-muted-foreground">Select a chart type</div>}
+                </ChartContainer>
+            </CardContent>
+        </Card>
+    )
+} 

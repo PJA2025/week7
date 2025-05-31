@@ -117,31 +117,40 @@ export default function DashboardPage() {
                     <div key={row} className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                         {Object.entries(metricConfig)
                             .filter(([_, config]) => config.row === row)
-                            .map(([key, config]) => (
-                                <MetricCard
-                                    key={key}
-                                    label={config.label}
-                                    value={config.format(totals[key as DisplayMetric], settings.currency)}
-                                    isSelected={selectedMetrics.includes(key as DisplayMetric)}
-                                    onClick={() => handleMetricClick(key as DisplayMetric)}
-                                />
-                            ))}
+                            .map(([key, config]) => {
+                                const metricKey = key as DisplayMetric;
+                                const isMetric1 = selectedMetrics[0] === metricKey;
+                                const isMetric2 = selectedMetrics[1] === metricKey;
+                                let highlightColor = undefined;
+                                if (isMetric1) highlightColor = COLORS.primary;
+                                else if (isMetric2) highlightColor = COLORS.secondary;
+
+                                return (
+                                    <MetricCard
+                                        key={key}
+                                        label={config.label}
+                                        value={config.format(totals[metricKey], settings.currency)}
+                                        isSelected={selectedMetrics.includes(metricKey)}
+                                        onClick={() => handleMetricClick(metricKey)}
+                                        highlightColor={highlightColor}
+                                    />
+                                );
+                            })}
                     </div>
                 ))}
 
                 <MetricsChart
                     data={dailyMetrics}
+                    chartTitle="Performance Overview"
                     metric1={{
                         key: selectedMetrics[0],
                         label: metricConfig[selectedMetrics[0]].label,
                         color: COLORS.primary,
-                        format: (v: number) => metricConfig[selectedMetrics[0]].format(v, settings.currency)
                     }}
                     metric2={{
                         key: selectedMetrics[1],
                         label: metricConfig[selectedMetrics[1]].label,
                         color: COLORS.secondary,
-                        format: (v: number) => metricConfig[selectedMetrics[1]].format(v, settings.currency)
                     }}
                 />
             </div>
