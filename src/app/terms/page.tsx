@@ -59,7 +59,7 @@ export default function TermsPage() {
     }
 
     const handleSort = (field: SortField) => {
-        const isStringField = ['searchTerm', 'campaign', 'adGroup', 'keywordText'].includes(field);
+        const isStringField = ['searchTerm', 'keyword', 'campaign', 'adGroup'].includes(field);
         const defaultDirection = isStringField ? 'asc' : 'desc';
 
         if (field === sortField) {
@@ -97,7 +97,7 @@ export default function TermsPage() {
                                 <SortButton field="searchTerm">Search Term</SortButton>
                             </TableHead>
                             <TableHead>
-                                <SortButton field="keywordText">Keyword</SortButton>
+                                <SortButton field="keyword">Keyword</SortButton>
                             </TableHead>
                             <TableHead>
                                 <SortButton field="campaign">Campaign</SortButton>
@@ -139,9 +139,9 @@ export default function TermsPage() {
                     </TableHeader>
                     <TableBody>
                         {sortedTerms.slice(0, 10).map((term, i) => (
-                            <TableRow key={`${term.searchTerm}-${term.campaign}-${term.adGroup}-${i}-${term.keywordText}`}>
+                            <TableRow key={`${term.searchTerm}-${term.campaign}-${term.adGroup}-${i}-${term.keyword}`}>
                                 <TableCell className="font-medium">{term.searchTerm}</TableCell>
-                                <TableCell>{term.keywordText || '-'}</TableCell>
+                                <TableCell>{term.keyword || '-'}</TableCell>
                                 <TableCell>{term.campaign}</TableCell>
                                 <TableCell>{term.adGroup}</TableCell>
                                 <TableCell className="text-right">{formatNumber(term.impr)}</TableCell>

@@ -18,6 +18,7 @@ async function fetchAndParseSearchTerms(sheetUrl: string): Promise<SearchTermMet
     }
     return rawData.map((row: any) => ({
       searchTerm: String(row['searchTerm'] || ''),
+      keyword: String(row['keyword'] || ''),
       keywordText: String(row['keywordText'] || ''),
       campaign: String(row['campaign'] || ''),
       adGroup: String(row['adGroup'] || ''),

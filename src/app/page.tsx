@@ -20,11 +20,11 @@ const metricConfig = {
     clicks: { label: 'Clicks', format: (v: number) => v.toLocaleString(), row: 1 },
     CTR: { label: 'CTR', format: formatPercent, row: 2 },
     CPC: { label: 'CPC', format: (v: number, currency: string) => formatCurrency(v, currency), row: 2 },
-    cost: { label: 'Cost', format: (v: number, currency: string) => formatCurrency(v, currency), row: 1 },
+    cost: { label: 'Cost', format: (v: number, currency: string) => currency + Math.round(v).toLocaleString(), row: 1 },
     conv: { label: 'Conv', format: formatConversions, row: 1 },
     CvR: { label: 'Conv Rate', format: formatPercent, row: 2 },
     CPA: { label: 'CPA', format: (v: number, currency: string) => formatCurrency(v, currency), row: 2 },
-    value: { label: 'Value', format: (v: number, currency: string) => formatCurrency(v, currency), row: 1 },
+    value: { label: 'Value', format: (v: number, currency: string) => currency + Math.round(v).toLocaleString(), row: 1 },
     ROAS: { label: 'ROAS', format: (v: number) => v.toFixed(2) + 'x', row: 2 }
 } as const
 
@@ -353,31 +353,28 @@ export default function DashboardPage() {
                 {/* Only render metric cards and chart if totals are available */}
                 {totals && (
                     <>
-                        {[1, 2].map(row => (
-                            <div key={row} className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                                {Object.entries(metricConfig)
-                                    .filter(([_, config]) => config.row === row)
-                                    .map(([key, config]) => {
-                                        const metricKey = key as DisplayMetric
-                                        const isMetric1 = selectedMetrics[0] === metricKey
-                                        const isMetric2 = selectedMetrics[1] === metricKey
-                                        let highlightColor = undefined
-                                        if (isMetric1) highlightColor = COLORS.primary
-                                        else if (isMetric2) highlightColor = COLORS.secondary
+                        <div className="grid gap-2 grid-cols-10">
+                            {Object.entries(metricConfig)
+                                .map(([key, config]) => {
+                                    const metricKey = key as DisplayMetric
+                                    const isMetric1 = selectedMetrics[0] === metricKey
+                                    const isMetric2 = selectedMetrics[1] === metricKey
+                                    let highlightColor = undefined
+                                    if (isMetric1) highlightColor = COLORS.primary
+                                    else if (isMetric2) highlightColor = COLORS.secondary
 
-                                        return (
-                                            <MetricCard
-                                                key={key}
-                                                label={config.label}
-                                                value={config.format(totals[metricKey], settings.currency)}
-                                                isSelected={selectedMetrics.includes(metricKey)}
-                                                onClick={() => handleMetricClick(metricKey)}
-                                                highlightColor={highlightColor}
-                                            />
-                                        )
-                                    })}
-                            </div>
-                        ))}
+                                    return (
+                                        <MetricCard
+                                            key={key}
+                                            label={config.label}
+                                            value={config.format(totals[metricKey], settings.currency)}
+                                            isSelected={selectedMetrics.includes(metricKey)}
+                                            onClick={() => handleMetricClick(metricKey)}
+                                            highlightColor={highlightColor}
+                                        />
+                                    )
+                                })}
+                        </div>
 
                         <MetricsChart
                             data={dailyMetrics}
@@ -403,7 +400,9 @@ export default function DashboardPage() {
                 {/* Ad Group Section - only show if a campaign is selected */}
                 {selectedCampaignId && selectedCampaignId !== 'all-campaigns' && (
                     <div className="mt-8 pt-6 border-t">
-                        <h2 className="text-2xl font-semibold mb-4">Ad Group Performance</h2>
+                        <h2 className="text-2xl font-semibold mb-4">
+                            Ad Group Performance {uniqueAdGroupsForCampaign.length > 0 && `(${uniqueAdGroupsForCampaign.length})`}
+                        </h2>
                         {uniqueAdGroupsForCampaign.length > 0 ? (
                             <>
                                 {adGroupDailyMetrics.length > 0 && (

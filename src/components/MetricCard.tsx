@@ -20,7 +20,7 @@ export function MetricCard({
   return (
     <Card
       className={`
-        p-4 transition-all
+        p-2 transition-all
         ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-ring' : ''}
         ${isSelected ? 'ring-2 ring-ring' : ''}
         ${className}
@@ -28,8 +28,8 @@ export function MetricCard({
       style={isSelected && highlightColor ? { backgroundColor: highlightColor, color: 'white' } : {}}
       onClick={onClick}
     >
-      <div className={`text-sm font-medium ${isSelected && highlightColor ? 'text-white/80' : 'text-muted-foreground'}`}>{label}</div>
-      <div className={`text-2xl font-bold mt-1 ${isSelected && highlightColor ? 'text-white' : 'text-foreground'}`}>{value}</div>
+      <div className={`text-xs font-medium ${isSelected && highlightColor ? 'text-white/80' : 'text-muted-foreground'}`}>{label}</div>
+      <div className={`text-lg font-bold mt-1 ${isSelected && highlightColor ? 'text-white' : 'text-foreground'}`}>{value}</div>
     </Card>
   )
 } 
