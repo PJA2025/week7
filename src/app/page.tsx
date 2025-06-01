@@ -4,7 +4,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useSettings } from '@/lib/contexts/SettingsContext'
-import type { AdMetric, DailyMetrics, TabData, AdGroupMetric, AssetGroupMetric } from '@/lib/types'
+import type { AdMetric, DailyMetrics, TabData, AdGroupMetric, AssetGroupMetric, Campaign } from '@/lib/types'
 import { calculateDailyMetrics } from '@/lib/metrics'
 import { MetricCard } from '@/components/MetricCard'
 import { MetricsChart } from '@/components/MetricsChart'
@@ -38,6 +38,39 @@ export default function DashboardPage() {
     const [selectedAssetGroupId, setSelectedAssetGroupId] = useState<string>('all-assetgroups')
     const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('last-30-days')
 
+    // Calculate campaigns with date-filtered costs
+    const campaignsWithDateFilteredCosts = useMemo(() => {
+        if (!fetchedData?.daily) return []
+
+        // Filter data by date range first
+        const dateFilteredData = filterDataByDateRange(fetchedData.daily, selectedDateRange)
+
+        // Calculate campaigns from the date-filtered data
+        const campaignMap = new Map<string, { id: string; name: string; totalCost: number }>()
+
+        dateFilteredData.forEach(row => {
+            const campaignId = row.campaignId ? String(row.campaignId).trim() : '';
+            if (!campaignId) {
+                return;
+            }
+
+            if (!campaignMap.has(campaignId)) {
+                campaignMap.set(campaignId, {
+                    id: campaignId,
+                    name: row.campaign,
+                    totalCost: row.cost
+                })
+            } else {
+                const campaign = campaignMap.get(campaignId)!
+                campaign.totalCost += row.cost
+            }
+        })
+
+        return Array.from(campaignMap.values())
+            .filter(campaign => campaign.id !== '')
+            .sort((a, b) => b.totalCost - a.totalCost)
+    }, [fetchedData?.daily, selectedDateRange])
+
     // Reset ad group and asset group selection when campaign changes
     useEffect(() => {
         setSelectedAdGroupId('all-adgroups')
@@ -47,19 +80,19 @@ export default function DashboardPage() {
     // Campaign navigation functions
     const getCurrentCampaignIndex = () => {
         if (selectedCampaignId === 'all-campaigns') return -1
-        return campaigns.findIndex(c => c.id === selectedCampaignId)
+        return campaignsWithDateFilteredCosts.findIndex(c => c.id === selectedCampaignId)
     }
 
     const handlePreviousCampaign = () => {
         const currentIndex = getCurrentCampaignIndex()
         if (currentIndex === -1) {
             // Currently on "All Campaigns", go to last campaign
-            if (campaigns.length > 0) {
-                setSelectedCampaignId(campaigns[campaigns.length - 1].id)
+            if (campaignsWithDateFilteredCosts.length > 0) {
+                setSelectedCampaignId(campaignsWithDateFilteredCosts[campaignsWithDateFilteredCosts.length - 1].id)
             }
         } else if (currentIndex > 0) {
             // Go to previous campaign
-            setSelectedCampaignId(campaigns[currentIndex - 1].id)
+            setSelectedCampaignId(campaignsWithDateFilteredCosts[currentIndex - 1].id)
         } else {
             // At first campaign, go to "All Campaigns"
             setSelectedCampaignId('all-campaigns')
@@ -70,12 +103,12 @@ export default function DashboardPage() {
         const currentIndex = getCurrentCampaignIndex()
         if (currentIndex === -1) {
             // Currently on "All Campaigns", go to first campaign
-            if (campaigns.length > 0) {
-                setSelectedCampaignId(campaigns[0].id)
+            if (campaignsWithDateFilteredCosts.length > 0) {
+                setSelectedCampaignId(campaignsWithDateFilteredCosts[0].id)
             }
-        } else if (currentIndex < campaigns.length - 1) {
+        } else if (currentIndex < campaignsWithDateFilteredCosts.length - 1) {
             // Go to next campaign
-            setSelectedCampaignId(campaigns[currentIndex + 1].id)
+            setSelectedCampaignId(campaignsWithDateFilteredCosts[currentIndex + 1].id)
         } else {
             // At last campaign, go to "All Campaigns"
             setSelectedCampaignId('all-campaigns')
@@ -83,8 +116,8 @@ export default function DashboardPage() {
     }
 
     // Check if navigation buttons should be disabled
-    const canNavigatePrevious = campaigns.length > 0
-    const canNavigateNext = campaigns.length > 0
+    const canNavigatePrevious = campaignsWithDateFilteredCosts.length > 0
+    const canNavigateNext = campaignsWithDateFilteredCosts.length > 0
 
     // Aggregate metrics by date when viewing all campaigns
     const aggregateMetricsByDate = (data: AdMetric[]): AdMetric[] => {
@@ -382,8 +415,8 @@ export default function DashboardPage() {
 
     // Get chart title based on selection
     const getChartTitle = () => {
-        if (selectedCampaignId && selectedCampaignId !== 'all-campaigns' && campaigns.find(c => c.id === selectedCampaignId)) {
-            const campaignName = campaigns.find(c => c.id === selectedCampaignId)?.name
+        if (selectedCampaignId && selectedCampaignId !== 'all-campaigns' && campaignsWithDateFilteredCosts.find(c => c.id === selectedCampaignId)) {
+            const campaignName = campaignsWithDateFilteredCosts.find(c => c.id === selectedCampaignId)?.name
             return campaignName
         }
         return "All Campaigns"
@@ -458,7 +491,7 @@ export default function DashboardPage() {
                 <div className="space-y-6">
                     <div className="flex justify-between items-start">
                         <CampaignSelect
-                            campaigns={campaigns || []}
+                            campaigns={campaignsWithDateFilteredCosts || []}
                             selectedId={selectedCampaignId}
                             onSelect={setSelectedCampaignId}
                         />
@@ -482,7 +515,7 @@ export default function DashboardPage() {
             <div className="space-y-6">
                 <div className="flex justify-between items-start">
                     <CampaignSelect
-                        campaigns={campaigns || []}
+                        campaigns={campaignsWithDateFilteredCosts || []}
                         selectedId={selectedCampaignId}
                         onSelect={setSelectedCampaignId}
                     />

@@ -2,7 +2,7 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-export type DateRangeOption = 'last-7-days' | 'last-14-days' | 'last-30-days' | 'last-90-days' | 'custom'
+export type DateRangeOption = 'last-7-days' | 'last-14-days' | 'last-30-days' | 'last-90-days' | 'last-180-days' | 'last-365-days' | 'custom'
 
 interface DateRangePickerProps {
     selectedRange: DateRangeOption
@@ -15,6 +15,8 @@ const dateRangeOptions = [
     { value: 'last-14-days', label: 'Last 14 days' },
     { value: 'last-30-days', label: 'Last 30 days' },
     { value: 'last-90-days', label: 'Last 90 days' },
+    { value: 'last-180-days', label: 'Last 180 days' },
+    { value: 'last-365-days', label: 'Last 365 days' },
     // { value: 'custom', label: 'Custom range' }, // We'll add this later
 ] as const
 
@@ -58,6 +60,12 @@ export function getDateRange(range: DateRangeOption): { startDate: Date; endDate
             break
         case 'last-90-days':
             startDate.setDate(today.getDate() - 89) // 90 days including today
+            break
+        case 'last-180-days':
+            startDate.setDate(today.getDate() - 179) // 180 days including today
+            break
+        case 'last-365-days':
+            startDate.setDate(today.getDate() - 364) // 365 days including today
             break
         case 'custom':
             // For now, default to last 30 days - we'll handle custom later
