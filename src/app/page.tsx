@@ -10,6 +10,7 @@ import { MetricCard } from '@/components/MetricCard'
 import { MetricsChart } from '@/components/MetricsChart'
 import { CampaignSelect } from '@/components/CampaignSelect'
 import { AssetGroupSelect } from '@/components/AssetGroupSelect'
+import { DateRangePicker, type DateRangeOption, filterDataByDateRange } from '@/components/DateRangePicker'
 import { formatCurrency, formatPercent, formatConversions } from '@/lib/utils'
 import { COLORS } from '@/lib/config'
 
@@ -35,6 +36,7 @@ export default function DashboardPage() {
     const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all-campaigns')
     const [selectedAdGroupId, setSelectedAdGroupId] = useState<string>('all-adgroups')
     const [selectedAssetGroupId, setSelectedAssetGroupId] = useState<string>('all-assetgroups')
+    const [selectedDateRange, setSelectedDateRange] = useState<DateRangeOption>('last-30-days')
 
     // Reset ad group and asset group selection when campaign changes
     useEffect(() => {
@@ -113,37 +115,43 @@ export default function DashboardPage() {
         )
     }
 
-    // Get filtered daily data based on campaign selection
+    // Get filtered daily data based on campaign selection and date range
     const filteredDailyData = useMemo(() => {
         if (!fetchedData?.daily) return []
 
+        let campaignFilteredData: AdMetric[]
         if (selectedCampaignId && selectedCampaignId !== 'all-campaigns') {
-            return fetchedData.daily.filter(d => d.campaignId === selectedCampaignId)
+            campaignFilteredData = fetchedData.daily.filter(d => d.campaignId === selectedCampaignId)
         } else {
-            return aggregateMetricsByDate(fetchedData.daily)
+            campaignFilteredData = aggregateMetricsByDate(fetchedData.daily)
         }
-    }, [selectedCampaignId, fetchedData?.daily])
+
+        // Apply date range filter
+        return filterDataByDateRange(campaignFilteredData, selectedDateRange)
+    }, [selectedCampaignId, selectedDateRange, fetchedData?.daily])
 
     // Calculate daily metrics for chart and scorecard
     const dailyMetrics = useMemo(() => {
         return calculateDailyMetrics(filteredDailyData)
     }, [filteredDailyData])
 
-    // Filter adGroups based on selectedCampaignId
+    // Filter adGroups based on selectedCampaignId and date range
     const campaignAdGroupsData = useMemo(() => {
         if (!selectedCampaignId || selectedCampaignId === 'all-campaigns' || !fetchedData?.adGroups) {
             return []
         }
-        return fetchedData.adGroups.filter(ag => ag.campaignId === selectedCampaignId)
-    }, [selectedCampaignId, fetchedData?.adGroups])
+        const campaignFiltered = fetchedData.adGroups.filter(ag => ag.campaignId === selectedCampaignId)
+        return filterDataByDateRange(campaignFiltered, selectedDateRange)
+    }, [selectedCampaignId, selectedDateRange, fetchedData?.adGroups])
 
-    // Filter assetGroups based on selectedCampaignId
+    // Filter assetGroups based on selectedCampaignId and date range
     const campaignAssetGroupsData = useMemo(() => {
         if (!selectedCampaignId || selectedCampaignId === 'all-campaigns' || !fetchedData?.assetGroups) {
             return []
         }
-        return fetchedData.assetGroups.filter(ag => ag.campaignId === selectedCampaignId)
-    }, [selectedCampaignId, fetchedData?.assetGroups])
+        const campaignFiltered = fetchedData.assetGroups.filter(ag => ag.campaignId === selectedCampaignId)
+        return filterDataByDateRange(campaignFiltered, selectedDateRange)
+    }, [selectedCampaignId, selectedDateRange, fetchedData?.assetGroups])
 
     // Determine if this campaign has ad groups or asset groups
     const hasAdGroups = campaignAdGroupsData.length > 0
@@ -448,11 +456,17 @@ export default function DashboardPage() {
         return (
             <DashboardLayout>
                 <div className="space-y-6">
-                    <CampaignSelect
-                        campaigns={campaigns || []}
-                        selectedId={selectedCampaignId}
-                        onSelect={setSelectedCampaignId}
-                    />
+                    <div className="flex justify-between items-start">
+                        <CampaignSelect
+                            campaigns={campaigns || []}
+                            selectedId={selectedCampaignId}
+                            onSelect={setSelectedCampaignId}
+                        />
+                        <DateRangePicker
+                            selectedRange={selectedDateRange}
+                            onRangeChange={setSelectedDateRange}
+                        />
+                    </div>
                     <div className="text-center py-12">
                         <p className="text-lg text-muted-foreground">No data found for this campaign</p>
                     </div>
@@ -466,11 +480,17 @@ export default function DashboardPage() {
     return (
         <DashboardLayout>
             <div className="space-y-6">
-                <CampaignSelect
-                    campaigns={campaigns || []}
-                    selectedId={selectedCampaignId}
-                    onSelect={setSelectedCampaignId}
-                />
+                <div className="flex justify-between items-start">
+                    <CampaignSelect
+                        campaigns={campaigns || []}
+                        selectedId={selectedCampaignId}
+                        onSelect={setSelectedCampaignId}
+                    />
+                    <DateRangePicker
+                        selectedRange={selectedDateRange}
+                        onRangeChange={setSelectedDateRange}
+                    />
+                </div>
 
                 {/* Only render metric cards and chart if totals are available */}
                 {totals && (
