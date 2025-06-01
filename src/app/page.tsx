@@ -4,11 +4,12 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useSettings } from '@/lib/contexts/SettingsContext'
-import type { AdMetric, DailyMetrics, TabData, AdGroupMetric } from '@/lib/types'
+import type { AdMetric, DailyMetrics, TabData, AdGroupMetric, AssetGroupMetric } from '@/lib/types'
 import { calculateDailyMetrics } from '@/lib/metrics'
 import { MetricCard } from '@/components/MetricCard'
 import { MetricsChart } from '@/components/MetricsChart'
 import { CampaignSelect } from '@/components/CampaignSelect'
+import { AssetGroupSelect } from '@/components/AssetGroupSelect'
 import { formatCurrency, formatPercent, formatConversions } from '@/lib/utils'
 import { COLORS } from '@/lib/config'
 
@@ -33,10 +34,12 @@ export default function DashboardPage() {
     const [selectedMetrics, setSelectedMetrics] = useState<[DisplayMetric, DisplayMetric]>(['cost', 'value'])
     const [selectedCampaignId, setSelectedCampaignId] = useState<string>('all-campaigns')
     const [selectedAdGroupId, setSelectedAdGroupId] = useState<string>('all-adgroups')
+    const [selectedAssetGroupId, setSelectedAssetGroupId] = useState<string>('all-assetgroups')
 
-    // Reset ad group selection when campaign changes
+    // Reset ad group and asset group selection when campaign changes
     useEffect(() => {
         setSelectedAdGroupId('all-adgroups')
+        setSelectedAssetGroupId('all-assetgroups')
     }, [selectedCampaignId])
 
     // Campaign navigation functions
@@ -134,6 +137,18 @@ export default function DashboardPage() {
         return fetchedData.adGroups.filter(ag => ag.campaignId === selectedCampaignId)
     }, [selectedCampaignId, fetchedData?.adGroups])
 
+    // Filter assetGroups based on selectedCampaignId
+    const campaignAssetGroupsData = useMemo(() => {
+        if (!selectedCampaignId || selectedCampaignId === 'all-campaigns' || !fetchedData?.assetGroups) {
+            return []
+        }
+        return fetchedData.assetGroups.filter(ag => ag.campaignId === selectedCampaignId)
+    }, [selectedCampaignId, fetchedData?.assetGroups])
+
+    // Determine if this campaign has ad groups or asset groups
+    const hasAdGroups = campaignAdGroupsData.length > 0
+    const hasAssetGroups = campaignAssetGroupsData.length > 0
+
     // Get unique ad groups for the selected campaign to populate the dropdown
     const uniqueAdGroupsForCampaign = useMemo(() => {
         if (!campaignAdGroupsData.length) return []
@@ -158,12 +173,44 @@ export default function DashboardPage() {
         return adGroupsArray.sort((a, b) => b.totalCost - a.totalCost) // Sort by cost like campaigns
     }, [campaignAdGroupsData])
 
+    // Get unique asset groups for the selected campaign to populate the dropdown
+    const uniqueAssetGroupsForCampaign = useMemo(() => {
+        if (!campaignAssetGroupsData.length) return []
+
+        const assetGroupMap = new Map<string, { id: string; name: string; totalCost: number; status: string }>()
+        campaignAssetGroupsData.forEach(ag => {
+            const assetGroupId = ag.assetGroupId ? String(ag.assetGroupId).trim() : ''
+            const assetGroupName = ag.assetGroup ? String(ag.assetGroup).trim() : ''
+            const status = ag.status ? String(ag.status).trim() : ''
+
+            // Ensure assetGroupId is valid and assetGroupName is not empty
+            if (assetGroupId && assetGroupName) {
+                if (!assetGroupMap.has(assetGroupId)) {
+                    assetGroupMap.set(assetGroupId, { id: assetGroupId, name: assetGroupName, totalCost: ag.cost, status })
+                } else {
+                    const existing = assetGroupMap.get(assetGroupId)!
+                    existing.totalCost += ag.cost
+                }
+            }
+        })
+
+        const assetGroupsArray = Array.from(assetGroupMap.values())
+        return assetGroupsArray.sort((a, b) => b.totalCost - a.totalCost) // Sort by cost like campaigns
+    }, [campaignAssetGroupsData])
+
     // Auto-select the highest cost ad group when campaign changes or when ad groups are available
     useEffect(() => {
         if (uniqueAdGroupsForCampaign.length > 0 && (selectedAdGroupId === 'all-adgroups' || !uniqueAdGroupsForCampaign.find(ag => ag.id === selectedAdGroupId))) {
             setSelectedAdGroupId(uniqueAdGroupsForCampaign[0].id) // Select highest cost ad group
         }
     }, [uniqueAdGroupsForCampaign, selectedAdGroupId])
+
+    // Auto-select the highest cost asset group when campaign changes or when asset groups are available
+    useEffect(() => {
+        if (uniqueAssetGroupsForCampaign.length > 0 && (selectedAssetGroupId === 'all-assetgroups' || !uniqueAssetGroupsForCampaign.find(ag => ag.id === selectedAssetGroupId))) {
+            setSelectedAssetGroupId(uniqueAssetGroupsForCampaign[0].id) // Select highest cost asset group
+        }
+    }, [uniqueAssetGroupsForCampaign, selectedAssetGroupId])
 
     // Ad Group navigation functions
     const getCurrentAdGroupIndex = () => {
@@ -195,6 +242,36 @@ export default function DashboardPage() {
     const canNavigateAdGroupPrevious = uniqueAdGroupsForCampaign.length > 1
     const canNavigateAdGroupNext = uniqueAdGroupsForCampaign.length > 1
 
+    // Asset Group navigation functions
+    const getCurrentAssetGroupIndex = () => {
+        return uniqueAssetGroupsForCampaign.findIndex(ag => ag.id === selectedAssetGroupId)
+    }
+
+    const handlePreviousAssetGroup = () => {
+        const currentIndex = getCurrentAssetGroupIndex()
+        if (currentIndex > 0) {
+            // Go to previous asset group
+            setSelectedAssetGroupId(uniqueAssetGroupsForCampaign[currentIndex - 1].id)
+        } else if (currentIndex === 0 && uniqueAssetGroupsForCampaign.length > 1) {
+            // At first asset group, go to last asset group
+            setSelectedAssetGroupId(uniqueAssetGroupsForCampaign[uniqueAssetGroupsForCampaign.length - 1].id)
+        }
+    }
+
+    const handleNextAssetGroup = () => {
+        const currentIndex = getCurrentAssetGroupIndex()
+        if (currentIndex < uniqueAssetGroupsForCampaign.length - 1) {
+            // Go to next asset group
+            setSelectedAssetGroupId(uniqueAssetGroupsForCampaign[currentIndex + 1].id)
+        } else if (currentIndex === uniqueAssetGroupsForCampaign.length - 1 && uniqueAssetGroupsForCampaign.length > 1) {
+            // At last asset group, go to first asset group
+            setSelectedAssetGroupId(uniqueAssetGroupsForCampaign[0].id)
+        }
+    }
+
+    const canNavigateAssetGroupPrevious = uniqueAssetGroupsForCampaign.length > 1
+    const canNavigateAssetGroupNext = uniqueAssetGroupsForCampaign.length > 1
+
     // Get filtered ad group data based on ad group selection (using the same logic as AdGroupTable)
     const processedAdGroupData = useMemo(() => {
         if (!campaignAdGroupsData.length || !selectedAdGroupId) return []
@@ -214,6 +291,25 @@ export default function DashboardPage() {
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [campaignAdGroupsData, selectedAdGroupId])
 
+    // Get filtered asset group data based on asset group selection
+    const processedAssetGroupData = useMemo(() => {
+        if (!campaignAssetGroupsData.length || !selectedAssetGroupId) return []
+
+        // Always show daily data for the selected asset group
+        return campaignAssetGroupsData
+            .filter(item => item.assetGroupId === selectedAssetGroupId)
+            .map(item => ({
+                ...item,
+                // Recalculate derived metrics for consistency
+                ctr: item.impr > 0 ? (item.clicks / item.impr) * 100 : 0,
+                cpc: item.clicks > 0 ? item.cost / item.clicks : 0,
+                convRate: item.clicks > 0 ? (item.conv / item.clicks) * 100 : 0,
+                cpa: item.conv > 0 ? item.cost / item.conv : 0,
+                roas: item.cost > 0 ? item.value / item.cost : 0,
+            }))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [campaignAssetGroupsData, selectedAssetGroupId])
+
     // Calculate daily metrics for ad group chart
     const adGroupDailyMetrics = useMemo(() => {
         return processedAdGroupData.map(ag => ({
@@ -230,6 +326,23 @@ export default function DashboardPage() {
             ROAS: ag.roas,
         }))
     }, [processedAdGroupData])
+
+    // Calculate daily metrics for asset group chart
+    const assetGroupDailyMetrics = useMemo(() => {
+        return processedAssetGroupData.map(ag => ({
+            date: ag.date,
+            impr: ag.impr,
+            clicks: ag.clicks,
+            cost: ag.cost,
+            conv: ag.conv,
+            value: ag.value,
+            CTR: ag.ctr,
+            CPC: ag.cpc,
+            CvR: ag.convRate,
+            CPA: ag.cpa,
+            ROAS: ag.roas,
+        }))
+    }, [processedAssetGroupData])
 
     // Calculate totals for scorecard
     const calculateTotals = () => {
@@ -277,6 +390,15 @@ export default function DashboardPage() {
         return "Ad Group Performance"
     }
 
+    // Get asset group chart title based on selection
+    const getAssetGroupChartTitle = () => {
+        if (selectedAssetGroupId && uniqueAssetGroupsForCampaign.find(ag => ag.id === selectedAssetGroupId)) {
+            const assetGroup = uniqueAssetGroupsForCampaign.find(ag => ag.id === selectedAssetGroupId)!
+            return `${assetGroup.name} (${formatCurrency(assetGroup.totalCost, settings.currency)})`
+        }
+        return "Asset Group Performance"
+    }
+
     // Loading state
     if (isDataLoading) {
         return (
@@ -321,8 +443,8 @@ export default function DashboardPage() {
         )
     }
 
-    // No data for selected campaign (both daily and ad groups empty)
-    if (selectedCampaignId && selectedCampaignId !== 'all-campaigns' && dailyMetrics.length === 0 && campaignAdGroupsData.length === 0) {
+    // No data for selected campaign (daily, ad groups, and asset groups all empty)
+    if (selectedCampaignId && selectedCampaignId !== 'all-campaigns' && dailyMetrics.length === 0 && campaignAdGroupsData.length === 0 && campaignAssetGroupsData.length === 0) {
         return (
             <DashboardLayout>
                 <div className="space-y-6">
@@ -397,8 +519,8 @@ export default function DashboardPage() {
                     </>
                 )}
 
-                {/* Ad Group Section - only show if a campaign is selected */}
-                {selectedCampaignId && selectedCampaignId !== 'all-campaigns' && (
+                {/* Ad Group Section - only show if a campaign is selected and has ad groups */}
+                {selectedCampaignId && selectedCampaignId !== 'all-campaigns' && hasAdGroups && (
                     <div className="mt-8 pt-6 border-t">
                         <h2 className="text-2xl font-semibold mb-4">
                             Ad Group Performance {uniqueAdGroupsForCampaign.length > 0 && `(${uniqueAdGroupsForCampaign.length})`}
@@ -428,6 +550,41 @@ export default function DashboardPage() {
                             </>
                         ) : (
                             <p className="text-center text-gray-500 py-4">This campaign does not have any ad groups.</p>
+                        )}
+                    </div>
+                )}
+
+                {/* Asset Group Section - only show if a campaign is selected and has asset groups */}
+                {selectedCampaignId && selectedCampaignId !== 'all-campaigns' && hasAssetGroups && (
+                    <div className="mt-8 pt-6 border-t">
+                        <h2 className="text-2xl font-semibold mb-4">
+                            Asset Group Performance {uniqueAssetGroupsForCampaign.length > 0 && `(${uniqueAssetGroupsForCampaign.length})`}
+                        </h2>
+                        {uniqueAssetGroupsForCampaign.length > 0 ? (
+                            <>
+                                {assetGroupDailyMetrics.length > 0 && (
+                                    <MetricsChart
+                                        data={assetGroupDailyMetrics}
+                                        chartTitle={getAssetGroupChartTitle()}
+                                        metric1={{
+                                            key: selectedMetrics[0],
+                                            label: metricConfig[selectedMetrics[0]].label,
+                                            color: COLORS.primary,
+                                        }}
+                                        metric2={{
+                                            key: selectedMetrics[1],
+                                            label: metricConfig[selectedMetrics[1]].label,
+                                            color: COLORS.secondary,
+                                        }}
+                                        onPreviousCampaign={handlePreviousAssetGroup}
+                                        onNextCampaign={handleNextAssetGroup}
+                                        canNavigatePrevious={canNavigateAssetGroupPrevious}
+                                        canNavigateNext={canNavigateAssetGroupNext}
+                                    />
+                                )}
+                            </>
+                        ) : (
+                            <p className="text-center text-gray-500 py-4">This campaign does not have any asset groups.</p>
                         )}
                     </div>
                 )}
