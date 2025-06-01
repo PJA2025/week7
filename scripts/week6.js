@@ -29,6 +29,7 @@ function getFlexibleDateRangeWhereClause(numDays) {
 const SEARCH_TERMS_QUERY = `
 SELECT 
   search_term_view.search_term, 
+  segments.keyword.info.text,
   campaign.name,
   ad_group.name,
   metrics.impressions, 
@@ -180,7 +181,7 @@ function main() {
     processTab(
       ss,
       SEARCH_TERMS_TAB,
-      ["searchTerm", "campaign", "adGroup", "impr", "clicks", "cost", "conv", "value", "cpc", "ctr", "convRate", "cpa", "roas"],
+      ["searchTerm", "keyword", "campaign", "adGroup", "impr", "clicks", "cost", "conv", "value", "cpc", "ctr", "convRate", "cpa", "roas"],
       SEARCH_TERMS_QUERY,
       calculateSearchTermsMetrics
     );
@@ -300,6 +301,7 @@ function calculateSearchTermsMetrics(rows) {
   while (rows.hasNext()) {
     const row = rows.next();
     const searchTerm = row['search_term_view.search_term'];
+    const keyword = row['segments.keyword.info.text'];
     const campaign = row['campaign.name'];
     const adGroup = row['ad_group.name'];
     const impressions = parseInt(row['metrics.impressions'], 10) || 0;
@@ -317,7 +319,7 @@ function calculateSearchTermsMetrics(rows) {
     const roas = cost > 0 ? conversionValue / cost : 0;
 
     // Add all variables and calculated metrics to a new row
-    const newRow = [searchTerm, campaign, adGroup, impressions, clicks, cost, conversions, conversionValue, cpc, ctr, convRate, cpa, roas];
+    const newRow = [searchTerm, keyword, campaign, adGroup, impressions, clicks, cost, conversions, conversionValue, cpc, ctr, convRate, cpa, roas];
 
     // Push new row to the data array
     data.push(newRow);

@@ -118,20 +118,25 @@ export function getCampaigns(data: AdMetric[]): Campaign[] {
   const campaignMap = new Map<string, { id: string; name: string; totalCost: number }>()
 
   data.forEach(row => {
-    if (!campaignMap.has(row.campaignId)) {
-      campaignMap.set(row.campaignId, {
-        id: row.campaignId,
+    const campaignId = row.campaignId ? String(row.campaignId).trim() : '';
+    if (!campaignId) {
+      return;
+    }
+
+    if (!campaignMap.has(campaignId)) {
+      campaignMap.set(campaignId, {
+        id: campaignId,
         name: row.campaign,
         totalCost: row.cost
       })
     } else {
-      const campaign = campaignMap.get(row.campaignId)!
+      const campaign = campaignMap.get(campaignId)!
       campaign.totalCost += row.cost
     }
   })
 
   return Array.from(campaignMap.values())
-    .sort((a, b) => b.totalCost - a.totalCost) // Sort by cost descending
+    .sort((a, b) => b.totalCost - a.totalCost)
 }
 
 export function getMetricsByDate(data: AdMetric[], campaignId: string): AdMetric[] {

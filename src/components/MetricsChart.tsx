@@ -27,7 +27,8 @@ import {
     type ChartConfig,
 } from '@/components/ui/chart'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { LineChartIcon, BarChartBigIcon, AreaChartIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { LineChartIcon, BarChartBigIcon, AreaChartIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { formatCurrencyForAxis, formatConversionsForAxis } from '@/lib/utils'
 
@@ -51,6 +52,10 @@ interface MetricsChartProps {
     chartType?: ChartVariant
     chartTitle?: string
     hideControls?: boolean
+    onPreviousCampaign?: () => void
+    onNextCampaign?: () => void
+    canNavigatePrevious?: boolean
+    canNavigateNext?: boolean
 }
 
 export function MetricsChart({
@@ -60,17 +65,35 @@ export function MetricsChart({
     chartType: initialChartType = 'area',
     chartTitle,
     hideControls = false,
+    onPreviousCampaign,
+    onNextCampaign,
+    canNavigatePrevious,
+    canNavigateNext,
 }: MetricsChartProps) {
     const [currentChartType, setCurrentChartType] =
         useState<ChartVariant>(initialChartType)
 
     const processedData = useMemo(() => {
-        return rawData
-            .map((item) => ({
+        // Check if this is aggregated data (no valid dates)
+        const hasAggregatedData = rawData.some(item => item.date === 'aggregated')
+
+        if (hasAggregatedData) {
+            // For aggregated data, use ad group names and create sequential indices
+            return rawData.map((item, index) => ({
                 ...item,
-                timestamp: parseISO(item.date).getTime(),
+                timestamp: index, // Use index for ordering
+                displayName: item.adGroup || item.campaign || `Item ${index + 1}` // Use ad group name for display
             }))
-            .sort((a, b) => a.timestamp - b.timestamp)
+        } else {
+            // For time-series data, use dates
+            return rawData
+                .map((item) => ({
+                    ...item,
+                    timestamp: parseISO(item.date).getTime(),
+                    displayName: item.date
+                }))
+                .sort((a, b) => a.timestamp - b.timestamp)
+        }
     }, [rawData])
 
     const chartConfig = useMemo(() => {
@@ -90,8 +113,18 @@ export function MetricsChart({
         return config
     }, [metric1, metric2])
 
-    const xAxisTickFormatter = (timestamp: number) => {
-        return format(new Date(timestamp), 'MMM d')
+    const xAxisTickFormatter = (value: any) => {
+        // Check if this is aggregated data
+        const hasAggregatedData = rawData.some(item => item.date === 'aggregated')
+
+        if (hasAggregatedData) {
+            // For aggregated data, find the item by index and return the display name
+            const item = processedData[value]
+            return item?.displayName || `Item ${value + 1}`
+        } else {
+            // For time-series data, format as date
+            return format(new Date(value), 'MMM d')
+        }
     }
 
     const yAxisTickFormatter = (value: number, key?: string) => {
@@ -299,7 +332,31 @@ export function MetricsChart({
         <Card>
             {chartTitle && (
                 <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>{chartTitle}</CardTitle>
+                    <div className="flex items-center gap-2">
+                        {(onPreviousCampaign || onNextCampaign) && (
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onPreviousCampaign}
+                                    disabled={!canNavigatePrevious}
+                                    aria-label="Previous campaign"
+                                >
+                                    <ChevronLeftIcon className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onNextCampaign}
+                                    disabled={!canNavigateNext}
+                                    aria-label="Next campaign"
+                                >
+                                    <ChevronRightIcon className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
+                        <CardTitle>{chartTitle}</CardTitle>
+                    </div>
                     {!hideControls && (
                         <ToggleGroup
                             type="single"

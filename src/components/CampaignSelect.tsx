@@ -1,6 +1,9 @@
+'use client'
+
 import { Campaign } from '@/lib/types'
 import { useSettings } from '@/lib/contexts/SettingsContext'
 import { formatCurrency } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface CampaignSelectProps {
   campaigns: Campaign[]
@@ -11,26 +14,33 @@ interface CampaignSelectProps {
 export function CampaignSelect({ campaigns, selectedId, onSelect }: CampaignSelectProps) {
   const { settings } = useSettings()
 
+  // console.log("[CampaignSelect] Rendering with campaigns:", campaigns);
+  // Use a special value for "All Campaigns" instead of empty string
+  const currentSelectedId = selectedId || 'all-campaigns';
+
   return (
-    <div className="mb-8">
-      <label htmlFor="campaign" className="block text-lg font-semibold text-gray-900 mb-3">
-        Select Campaign
-      </label>
-      <select
-        id="campaign"
-        value={selectedId || ''}
-        onChange={(e) => onSelect(e.target.value)}
-        className="block w-full px-4 py-3 text-base rounded-lg border border-gray-200 bg-white shadow-sm 
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-          hover:border-gray-300 transition-colors"
-      >
-        <option value="">All Campaigns</option>
-        {campaigns.map((campaign) => (
-          <option key={campaign.id} value={campaign.id}>
-            {campaign.name} ({formatCurrency(campaign.totalCost, settings.currency)})
-          </option>
-        ))}
-      </select>
-    </div>
+    <Select value={currentSelectedId} onValueChange={onSelect}>
+      <SelectTrigger className="w-full md:w-[300px]">
+        <SelectValue placeholder="Select Campaign" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all-campaigns">All Campaigns</SelectItem>
+        {campaigns.map(campaign => {
+          const campaignIdStr = campaign.id ? String(campaign.id).trim() : '';
+          // console.log(`[CampaignSelect] Mapping campaign: ID='${campaignIdStr}', Name='${campaign.name}'`);
+
+          if (!campaignIdStr) { // Check if ID is empty string after trim, or was initially null/undefined
+            console.error(`[CampaignSelect] SKIPPING CAMPAIGN WITH INVALID ID: Original ID='${campaign.id}', Name='${campaign.name}'`);
+            return null; // Do not render this SelectItem
+          }
+
+          return (
+            <SelectItem key={campaignIdStr} value={campaignIdStr}>
+              {campaign.name} ({formatCurrency(campaign.totalCost, settings.currency)})
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
   )
 } 

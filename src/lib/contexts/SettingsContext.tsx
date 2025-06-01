@@ -63,7 +63,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   // Calculate campaigns based on fetchedData
   const campaigns = useMemo(() => {
-    return fetchedData?.daily ? getCampaigns(fetchedData.daily) : []
+    // Ensure getCampaigns is robust and filters out campaigns with empty IDs if that's a concern.
+    // Assuming getCampaigns itself (from sheetsData.ts) handles or should handle data integrity.
+    // If getCampaigns might return campaigns with id === '', filter them here:
+    const rawCampaigns = fetchedData?.daily ? getCampaigns(fetchedData.daily) : [];
+    return rawCampaigns.filter(campaign => campaign.id !== '');
   }, [fetchedData])
 
   const setSheetUrl = (url: string) => {
