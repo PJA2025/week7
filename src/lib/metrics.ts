@@ -1,8 +1,17 @@
 // src/lib/metrics.ts
-import type { AdMetric, DailyMetrics, SearchTermMetric } from './types'
+import type { AdMetric, DailyMetrics, SearchTermMetric, AssetGroupMetric } from './types'
 
 // Interface for Search Terms with calculated metrics
 export interface CalculatedSearchTermMetric extends SearchTermMetric {
+  CTR: number
+  CvR: number
+  CPA: number
+  ROAS: number
+  CPC: number
+}
+
+// Interface for Asset Groups with calculated metrics
+export interface CalculatedAssetGroupMetric extends AssetGroupMetric {
   CTR: number
   CvR: number
   CPA: number
@@ -76,6 +85,30 @@ export function calculateSingleSearchTermMetrics(term: SearchTermMetric): Calcul
 // Calculate derived metrics for an array of Search Terms
 export function calculateAllSearchTermMetrics(terms: SearchTermMetric[]): CalculatedSearchTermMetric[] {
   return terms.map(calculateSingleSearchTermMetrics);
+}
+
+// Calculate derived metrics for a single Asset Group row
+export function calculateSingleAssetGroupMetrics(assetGroup: AssetGroupMetric): CalculatedAssetGroupMetric {
+  const { impr, clicks, cost, conv, value } = assetGroup;
+  const CTR = impr > 0 ? (clicks / impr) * 100 : 0;
+  const CvR = clicks > 0 ? (conv / clicks) * 100 : 0;
+  const CPA = conv > 0 ? cost / conv : 0;
+  const ROAS = cost > 0 ? value / cost : 0;
+  const CPC = clicks > 0 ? cost / clicks : 0;
+
+  return {
+    ...assetGroup,
+    CTR,
+    CvR,
+    CPA,
+    ROAS,
+    CPC,
+  };
+}
+
+// Calculate derived metrics for an array of Asset Groups
+export function calculateAllAssetGroupMetrics(assetGroups: AssetGroupMetric[]): CalculatedAssetGroupMetric[] {
+  return assetGroups.map(calculateSingleAssetGroupMetrics);
 }
 
 // Format metric values consistently

@@ -1,5 +1,5 @@
 // src/lib/sheetsData.ts
-import { AdMetric, Campaign, SearchTermMetric, TabData, AdGroupMetric } from './types'
+import { AdMetric, Campaign, SearchTermMetric, TabData, AdGroupMetric, AssetGroupMetric } from './types'
 import { SHEET_TABS, SheetTab, TAB_CONFIGS, DEFAULT_SHEET_URL } from './config'
 
 // Helper to fetch and parse SearchTerm data
@@ -71,6 +71,44 @@ async function fetchAndParseAdGroups(sheetUrl: string): Promise<AdGroupMetric[]>
   }
 }
 
+// Helper to fetch and parse AssetGroup data
+async function fetchAndParseAssetGroups(sheetUrl: string): Promise<AssetGroupMetric[]> {
+  const tab: SheetTab = 'assetGroups';
+  try {
+    const urlWithTab = `${sheetUrl}?tab=${tab}`;
+    const response = await fetch(urlWithTab);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch data for tab ${tab}`);
+    }
+    const rawData = await response.json();
+    if (!Array.isArray(rawData)) {
+      console.error(`Response is not an array for ${tab}:`, rawData);
+      return [];
+    }
+    return rawData.map((row: any) => ({
+      campaign: String(row['campaign'] || ''),
+      campaignId: String(row['campaignId'] || ''),
+      assetGroup: String(row['assetGroup'] || ''),
+      assetGroupId: String(row['assetGroupId'] || ''),
+      status: String(row['status'] || ''),
+      clicks: Number(row['clicks'] || 0),
+      value: Number(row['value'] || 0),
+      conv: Number(row['conv'] || 0),
+      cost: Number(row['cost'] || 0),
+      impr: Number(row['impr'] || 0),
+      date: String(row['date'] || ''),
+      cpc: Number(row['cpc'] || 0),
+      ctr: Number(row['ctr'] || 0),
+      convRate: Number(row['convRate'] || 0),
+      cpa: Number(row['cpa'] || 0),
+      roas: Number(row['roas'] || 0)
+    }));
+  } catch (error) {
+    console.error(`Error fetching ${tab} data:`, error);
+    return [];
+  }
+}
+
 // Helper to fetch and parse Daily (AdMetric) data
 async function fetchAndParseDaily(sheetUrl: string): Promise<AdMetric[]> {
   const tab: SheetTab = 'daily';
@@ -102,16 +140,18 @@ async function fetchAndParseDaily(sheetUrl: string): Promise<AdMetric[]> {
 }
 
 export async function fetchAllTabsData(sheetUrl: string = DEFAULT_SHEET_URL): Promise<TabData> {
-  const [dailyData, searchTermsData, adGroupsData] = await Promise.all([
+  const [dailyData, searchTermsData, adGroupsData, assetGroupsData] = await Promise.all([
     fetchAndParseDaily(sheetUrl),
     fetchAndParseSearchTerms(sheetUrl),
-    fetchAndParseAdGroups(sheetUrl)
+    fetchAndParseAdGroups(sheetUrl),
+    fetchAndParseAssetGroups(sheetUrl)
   ]);
 
   return {
     daily: dailyData || [],
     searchTerms: searchTermsData || [],
     adGroups: adGroupsData || [],
+    assetGroups: assetGroupsData || [],
   } as TabData;
 }
 

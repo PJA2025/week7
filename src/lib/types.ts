@@ -45,6 +45,26 @@ export interface AdGroupMetric {
   roas: number
 }
 
+// Add the new AssetGroupMetric interface
+export interface AssetGroupMetric {
+  campaign: string
+  campaignId: string
+  assetGroup: string
+  assetGroupId: string
+  status: string
+  impr: number
+  clicks: number
+  value: number
+  conv: number
+  cost: number
+  date: string
+  cpc: number
+  ctr: number
+  convRate: number
+  cpa: number
+  roas: number
+}
+
 // Search term metrics - Core metrics from script
 export interface SearchTermMetric {
   searchTerm: string
@@ -109,6 +129,7 @@ export type TabData = {
   daily: AdMetric[]
   searchTerms: SearchTermMetric[]
   adGroups: AdGroupMetric[]
+  assetGroups: AssetGroupMetric[]
 }
 
 // Helper type to get numeric values from metrics

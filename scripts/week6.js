@@ -2,6 +2,7 @@ const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1lMiKofgjbw-Cy0048lOHP
 const SEARCH_TERMS_TAB = 'SearchTerms';
 const DAILY_TAB = 'Daily';
 const AD_GROUP_TAB = 'AdGroups';  // New tab for ad group data
+const ASSET_GROUPS_TAB = 'AssetGroups'; // New tab for asset group data
 const NEGATIVE_KEYWORD_LISTS_TAB = 'NegativeKeywordLists'; // Tab for shared negative lists
 const CAMPAIGN_NEGATIVES_TAB = 'CampaignNegatives'; // Tab for campaign-level negatives
 const ADGROUP_NEGATIVES_TAB = 'AdGroupNegatives'; // Tab for ad group-level negatives
@@ -75,6 +76,26 @@ SELECT
   segments.date
 FROM ad_group
 WHERE ${getFlexibleDateRangeWhereClause(NUMBER_OF_DAYS)}
+ORDER BY segments.date DESC, metrics.cost_micros DESC
+`;
+
+// GAQL query for asset group data
+const ASSET_GROUPS_QUERY = `
+SELECT
+  campaign.name,
+  campaign.id,
+  asset_group.name,
+  asset_group.id,
+  asset_group.status,
+  metrics.clicks,
+  metrics.conversions_value,
+  metrics.conversions,
+  metrics.cost_micros,
+  metrics.impressions,
+  segments.date
+FROM asset_group
+WHERE ${getFlexibleDateRangeWhereClause(NUMBER_OF_DAYS)}
+  AND campaign.advertising_channel_type = "PERFORMANCE_MAX"
 ORDER BY segments.date DESC, metrics.cost_micros DESC
 `;
 
@@ -195,13 +216,22 @@ function main() {
       processDailyData
     );
 
-    // Process AdGroups tab (new)
+    // Process AdGroups tab
     processTab(
       ss,
       AD_GROUP_TAB,
       ["campaign", "campaignId", "adGroup", "adGroupId", "impr", "clicks", "value", "conv", "cost", "date", "cpc", "ctr", "convRate", "cpa", "roas"],
       AD_GROUP_QUERY,
       processAdGroupData
+    );
+
+    // Process Asset Groups tab (new)
+    processTab(
+      ss,
+      ASSET_GROUPS_TAB,
+      ["campaign", "campaignId", "assetGroup", "assetGroupId", "status", "impr", "clicks", "value", "conv", "cost", "date", "cpc", "ctr", "convRate", "cpa", "roas"],
+      ASSET_GROUPS_QUERY,
+      processAssetGroupData
     );
 
     // Process Negative Keyword Lists tab
@@ -383,6 +413,58 @@ function processAdGroupData(rows) {
       campaignId,
       adGroup,
       adGroupId,
+      impressions,
+      clicks,
+      conversionValue,
+      conversions,
+      cost,
+      date,
+      cpc,
+      ctr,
+      convRate,
+      cpa,
+      roas
+    ];
+
+    // Push new row to the data array
+    data.push(newRow);
+  }
+  return data;
+}
+
+function processAssetGroupData(rows) {
+  const data = [];
+  while (rows.hasNext()) {
+    const row = rows.next();
+
+    // Extract data
+    const campaign = String(row['campaign.name'] || '');
+    const campaignId = String(row['campaign.id'] || '');
+    const assetGroup = String(row['asset_group.name'] || '');
+    const assetGroupId = String(row['asset_group.id'] || '');
+    const status = String(row['asset_group.status'] || '');
+    const impressions = Number(row['metrics.impressions'] || 0);
+    const clicks = Number(row['metrics.clicks'] || 0);
+    const costMicros = Number(row['metrics.cost_micros'] || 0);
+    const conversions = Number(row['metrics.conversions'] || 0);
+    const conversionValue = Number(row['metrics.conversions_value'] || 0);
+    const date = String(row['segments.date'] || '');
+
+    // Calculate metrics
+    const cost = costMicros / 1000000;  // Convert micros to actual currency
+    const cpc = clicks > 0 ? cost / clicks : 0;
+    const ctr = impressions > 0 ? clicks / impressions : 0;
+    const convRate = clicks > 0 ? conversions / clicks : 0;
+    const cpa = conversions > 0 ? cost / conversions : 0;
+    const roas = cost > 0 ? conversionValue / cost : 0;
+
+    // Create a new row with the data
+    const newRow = [
+      campaign,
+      campaignId,
+      assetGroup,
+      assetGroupId,
+      status,
       impressions,
       clicks,
       conversionValue,
