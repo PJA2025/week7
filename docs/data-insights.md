@@ -1,8 +1,8 @@
 # Product Requirements Document: Data Insights Page
 
 **Version:** 1.0
-**Date:** {{YYYY-MM-DD}} (Replace with current date)
-**Author:** BTA Participant / AI Assistant
+**Date:** June 1 2025
+**Author:** Mike Rhodes
 
 ## 1. Introduction
 

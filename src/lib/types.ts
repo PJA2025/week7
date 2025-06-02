@@ -133,4 +133,66 @@ export type TabData = {
 }
 
 // Helper type to get numeric values from metrics
-export type MetricValue<T> = T extends number ? T : never 
+export type MetricValue<T> = T extends number ? T : never
+
+// Data Insights Types
+export type DataSourceType = keyof TabData
+
+export type ColumnType = 'metric' | 'dimension' | 'date'
+
+export interface ColumnDefinition {
+  name: string
+  key: string
+  type: ColumnType
+  label: string
+}
+
+export interface FilterOperator {
+  value: string
+  label: string
+  types: ColumnType[]
+}
+
+export interface DataFilter {
+  id: string
+  column: string
+  operator: string
+  value: string
+}
+
+export interface SortConfig {
+  column: string
+  direction: 'asc' | 'desc'
+}
+
+export interface DataSummary {
+  totalRows: number
+  metrics: Record<string, {
+    min: number
+    max: number
+    avg: number
+    sum: number
+  }>
+  dimensions: Record<string, {
+    uniqueCount: number
+    topValues?: Array<{ value: string; count: number }>
+  }>
+}
+
+// Filter operators configuration
+export const FILTER_OPERATORS: FilterOperator[] = [
+  { value: 'contains', label: 'Contains', types: ['dimension'] },
+  { value: 'not_contains', label: 'Does not contain', types: ['dimension'] },
+  { value: 'equals', label: 'Equals', types: ['metric', 'dimension', 'date'] },
+  { value: 'not_equals', label: 'Not equals', types: ['metric', 'dimension', 'date'] },
+  { value: 'starts_with', label: 'Starts with', types: ['dimension'] },
+  { value: 'ends_with', label: 'Ends with', types: ['dimension'] },
+  { value: 'greater_than', label: 'Greater than', types: ['metric'] },
+  { value: 'less_than', label: 'Less than', types: ['metric'] },
+  { value: 'greater_equal', label: 'Greater than or equals', types: ['metric'] },
+  { value: 'less_equal', label: 'Less than or equals', types: ['metric'] },
+  { value: 'after', label: 'After', types: ['date'] },
+  { value: 'before', label: 'Before', types: ['date'] },
+  { value: 'on_or_after', label: 'On or after', types: ['date'] },
+  { value: 'on_or_before', label: 'On or before', types: ['date'] },
+] 
