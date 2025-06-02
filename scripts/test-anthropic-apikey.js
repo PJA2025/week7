@@ -1,0 +1,159 @@
+/**
+ * Test Anthropic API v3 (updated June 2025)
+ * (c) MikeRhodes.com.au
+ *
+ * Purpose: Quickly test your Anthropic API Key & account from a Google Ads script.
+ *
+ * If you need an API key, visit:
+ *   https://console.anthropic.com/settings/keys
+ *
+ * To learn about optional parameters (e.g., max_tokens, temperature), see:
+ *   https://docs.anthropic.com/api
+ */
+
+
+
+
+// Enter your Anthropic API Key here between the quotes
+const API_KEY = '';  // ← If blank, script will prompt you to get one
+
+
+// You can change this prompt if you want – the idea here is to ask a simple question to test the connection
+const PROMPT = 'Describe the view from the top of the tallest mountain in the world?';
+
+
+// There should be no need to change the model name.
+// Details are at: https://docs.anthropic.com/en/docs/about-claude/models/overview
+const MODEL  = 'claude-sonnet-4-20250514';
+
+
+
+// ------------------------------------------------------------
+
+
+
+
+function main() {
+  try {
+    if (!API_KEY || API_KEY.trim().length === 0) {
+      Logger.log(
+        "❗ No Anthropic API key provided. Please obtain one at: " +
+        "https://console.anthropic.com/settings/keys"
+      );
+      return;
+    }
+
+    const startTime = new Date().getTime();
+    const output = generateTextAnthropicAPI(PROMPT, API_KEY, MODEL);
+    Logger.log("Output: " + output);
+
+    const endTime = new Date().getTime();
+    const durationSeconds = (endTime - startTime) / 1000;
+    Logger.log("Time taken for script to run: " + durationSeconds + " seconds");
+
+  } catch (error) {
+    Logger.log("An error occurred in main(): " + error);
+  }
+}
+
+/**
+ * Calls the Anthropic Chat Completions endpoint.
+ * Retries up to 3 times (initial + 2 retries) with a 2-second pause between each.
+ *
+ * @param {string} prompt   The user prompt to send.
+ * @param {string} apiKey   Your Anthropic API key.
+ * @param {string} model    The model name (e.g., "claude-sonnet-4-20250514").
+ * @return {string}         The assistant's response or an error message.
+ */
+function generateTextAnthropicAPI(prompt, apiKey, model) {
+  Logger.log("Generating text with Anthropic API…");
+
+  const url = "https://api.anthropic.com/v1/messages";
+  const messagesArray = [
+    { "role": "user", "content": prompt }
+  ];
+
+  const payloadObject = {
+    "messages": messagesArray,
+    "model": model,
+    "max_tokens": 500
+    // Optional parameters available 
+  };
+
+  const httpOptions = {
+    "method": "post",
+    "contentType": "application/json",
+    "muteHttpExceptions": true,
+    "headers": {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    "payload": JSON.stringify(payloadObject)
+  };
+
+  let response;
+  let responseCode;
+  let responseText;
+
+  // Attempt up to 3 times
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    response = UrlFetchApp.fetch(url, httpOptions);
+    responseCode = response.getResponseCode();
+    responseText = response.getContentText();
+
+    if (responseCode === 200) {
+      break;
+    }
+
+    Logger.log(
+      "Attempt " + attempt + " failed with status " + responseCode +
+      ". Retrying in 2 seconds…"
+    );
+    Utilities.sleep(2000);
+  }
+
+  if (responseCode !== 200) {
+    Logger.log(
+      "Error: Anthropic API request failed after 3 attempts. Status: " +
+      responseCode
+    );
+    Logger.log(
+      "See https://docs.anthropic.com/en/api/errors for more info."
+    );
+    try {
+      const errorJson = JSON.parse(responseText);
+      Logger.log("Error details: " + JSON.stringify(errorJson.error));
+      return "Error: " + (errorJson.error.message || "Unknown error from Anthropic.");
+    } catch (parseError) {
+      Logger.log("Error parsing Anthropic API error response.");
+      return "Error: Failed to parse Anthropic error response.";
+    }
+  }
+
+  // Parse the successful response
+  try {
+    const parsed = JSON.parse(responseText);
+    // The v1/messages response provides content as an array of { type, text }
+    if (
+      parsed &&
+      Array.isArray(parsed.content) &&
+      parsed.content.length > 0 &&
+      parsed.content[0].text
+    ) {
+      return parsed.content[0].text;
+    } else {
+      Logger.log("Unexpected response structure: " + responseText);
+      return "Error: Unexpected response structure.";
+    }
+  } catch (jsonError) {
+    Logger.log("Error parsing Anthropic API success response: " + jsonError);
+    return "Error: Failed to parse Anthropic response.";
+  }
+}
+
+
+
+
+// Thanks for trying out the script.
+
+// PS you're awesome!

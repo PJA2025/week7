@@ -1,0 +1,146 @@
+/**
+ * Test OpenAI API v3 (updated June 2025)
+ * (c) MikeRhodes.com.au
+ *
+ * Purpose: Quickly test your API KEY & OpenAI account from a Google Ads script.
+ *
+ * If you need an API key, visit:
+ *   https://platform.openai.com/api-keys
+ *
+ * To learn about optional parameters (e.g., temperature, max_tokens), see:
+ *   https://platform.openai.com/docs/api-reference/chat/create
+ */
+
+
+
+// Enter your OpenAI API Key here between the quotes
+
+const API_KEY = '';  // ← If blank, script will prompt you to get one
+
+
+
+// You can change this prompt if you want – the idea here is to ask a simple question to test the connection
+
+const PROMPT = "What's the tallest mountain in the world?";
+
+
+
+
+// ----------------------------------------------------------------------------------
+
+
+
+
+
+function main() {
+  try {
+    if (!API_KEY || API_KEY.trim().length === 0) {
+      Logger.log("❗ No API key provided. Please obtain one at: https://platform.openai.com/account/api-keys");
+      return;
+    }
+
+    const startTime = new Date().getTime();
+    const modelName = "gpt-4o-mini";
+    const output = generateTextOpenAI(PROMPT, API_KEY, modelName);
+    Logger.log("Text output: " + output);
+
+    const endTime = new Date().getTime();
+    const durationSeconds = (endTime - startTime) / 1000;
+    Logger.log("Time taken for script to run: " + durationSeconds + " seconds");
+
+  } catch (error) {
+    Logger.log("An error occurred in main(): " + error);
+  }
+}
+
+/**
+ * Calls the OpenAI Chat Completions endpoint.
+ * Retries up to 3 times (initial + 2 retries) with a 2-second pause between each.
+ *
+ * @param {string} prompt  The user prompt to send.
+ * @param {string} apiKey  Your OpenAI API key.
+ * @param {string} model   The model name (e.g., "gpt-4o-mini").
+ * @return {string}        The assistant's response or an error message.
+ */
+function generateTextOpenAI(prompt, apiKey, model) {
+  Logger.log("Generating text with OpenAI…");
+
+  const url = "https://api.openai.com/v1/chat/completions";
+  const messagesArray = [
+    { "role": "user", "content": prompt }
+  ];
+
+  const payloadObject = {
+    "model": model,
+    "messages": messagesArray
+    // Optional parameters available here: https://platform.openai.com/docs/api-reference/chat/create
+    // e.g., "temperature": 0.7, "max_tokens": 150, etc.
+  };
+
+  const httpOptions = {
+    "method": "post",
+    "contentType": "application/json",
+    "muteHttpExceptions": true,
+    "headers": {
+      "Authorization": "Bearer " + apiKey
+    },
+    "payload": JSON.stringify(payloadObject)
+  };
+
+  let response;
+  let responseCode;
+  let responseText;
+
+  // Attempt up to 3 times
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    response = UrlFetchApp.fetch(url, httpOptions);
+    responseCode = response.getResponseCode();
+    responseText = response.getContentText();
+
+    if (responseCode === 200) {
+      break;
+    }
+
+    Logger.log(
+      "Attempt " + attempt + " failed with status " + responseCode +
+      ". Retrying in 2 seconds…"
+    );
+    Utilities.sleep(2000);
+  }
+
+  if (responseCode !== 200) {
+    Logger.log("Error: OpenAI API request failed after 3 attempts. Status: " + responseCode);
+    Logger.log("See https://help.openai.com/en/articles/6891839-api-error-codes for more info.");
+    try {
+      const errorJson = JSON.parse(responseText);
+      Logger.log("Error details: " + JSON.stringify(errorJson.error));
+      return "Error: " + (errorJson.error.message || "Unknown error from OpenAI.");
+    } catch (parseError) {
+      Logger.log("Error parsing OpenAI API error response.");
+      return "Error: Failed to parse OpenAI error response.";
+    }
+  }
+
+  // Parse the successful response
+  try {
+    const parsed = JSON.parse(responseText);
+    const choices = parsed.choices;
+    if (choices && choices.length > 0 && choices[0].message && choices[0].message.content) {
+      return choices[0].message.content;
+    } else {
+      Logger.log("Unexpected response structure: " + responseText);
+      return "Error: Unexpected response structure.";
+    }
+  } catch (jsonError) {
+    Logger.log("Error parsing OpenAI API success response: " + jsonError);
+    return "Error: Failed to parse OpenAI response.";
+  }
+}
+
+
+
+
+
+// Thanks for trying out the script.
+
+// PS you're awesome!
