@@ -1,8 +1,27 @@
 // src/lib/metrics.ts
 import type { AdMetric, DailyMetrics, SearchTermMetric, AssetGroupMetric, LandingPage } from './types'
 
-// Interface for Search Terms with calculated metrics
-export interface CalculatedSearchTermMetric extends SearchTermMetric {
+// Base interface for any data with performance metrics
+interface BaseMetrics {
+  clicks: number
+  cost: number
+  value: number
+}
+
+// Interface for data with impressions and conversions
+interface StandardMetrics extends BaseMetrics {
+  impr: number
+  conv: number
+}
+
+// Interface for landing page metrics (different field names)
+interface LandingPageMetrics extends BaseMetrics {
+  impressions: number
+  conversions: number
+}
+
+// Calculated metrics that can be added to any base type
+export interface CalculatedMetrics {
   CTR: number
   CvR: number
   CPA: number
@@ -10,22 +29,51 @@ export interface CalculatedSearchTermMetric extends SearchTermMetric {
   CPC: number
 }
 
-// Interface for Asset Groups with calculated metrics
-export interface CalculatedAssetGroupMetric extends AssetGroupMetric {
-  CTR: number
-  CvR: number
-  CPA: number
-  ROAS: number
-  CPC: number
+// Combined interfaces for calculated metrics
+export interface CalculatedSearchTermMetric extends SearchTermMetric, CalculatedMetrics { }
+export interface CalculatedAssetGroupMetric extends AssetGroupMetric, CalculatedMetrics { }
+export interface CalculatedLandingPageMetric extends LandingPage, CalculatedMetrics { }
+
+// Generic function to calculate metrics from standard fields (impr, conv)
+function calculateStandardMetrics(data: StandardMetrics): CalculatedMetrics {
+  const { impr, clicks, cost, conv, value } = data
+
+  return {
+    CTR: impr > 0 ? (clicks / impr) * 100 : 0,
+    CvR: clicks > 0 ? (conv / clicks) * 100 : 0,
+    CPA: conv > 0 ? cost / conv : 0,
+    ROAS: cost > 0 ? value / cost : 0,
+    CPC: clicks > 0 ? cost / clicks : 0
+  }
 }
 
-// Interface for Landing Pages with calculated metrics - Updated to match new structure
-export interface CalculatedLandingPageMetric extends LandingPage {
-  CTR: number
-  CvR: number
-  CPA: number
-  ROAS: number
-  CPC: number
+// Generic function to calculate metrics from landing page fields (impressions, conversions)
+function calculateLandingPageMetrics(data: LandingPageMetrics): CalculatedMetrics {
+  const { impressions, clicks, cost, conversions, value } = data
+
+  return {
+    CTR: impressions > 0 ? (clicks / impressions) * 100 : 0,
+    CvR: clicks > 0 ? (conversions / clicks) * 100 : 0,
+    CPA: conversions > 0 ? cost / conversions : 0,
+    ROAS: cost > 0 ? value / cost : 0,
+    CPC: clicks > 0 ? cost / clicks : 0
+  }
+}
+
+// Generic function to add calculated metrics to any object
+function addCalculatedMetrics<T extends StandardMetrics>(item: T): T & CalculatedMetrics {
+  return {
+    ...item,
+    ...calculateStandardMetrics(item)
+  }
+}
+
+// Generic function to add calculated metrics to landing page objects
+function addLandingPageCalculatedMetrics<T extends LandingPageMetrics>(item: T): T & CalculatedMetrics {
+  return {
+    ...item,
+    ...calculateLandingPageMetrics(item)
+  }
 }
 
 // Calculate aggregated metrics for daily campaign data
@@ -50,98 +98,42 @@ export function calculateMetrics(data: AdMetric[]): DailyMetrics {
     value: 0
   } as AdMetric)
 
-  return {
-    ...totals,
-    CTR: totals.impr ? (totals.clicks / totals.impr) * 100 : 0,
-    CvR: totals.clicks ? (totals.conv / totals.clicks) * 100 : 0,
-    CPA: totals.conv ? totals.cost / totals.conv : 0,
-    ROAS: totals.cost ? totals.value / totals.cost : 0,
-    CPC: totals.clicks ? totals.cost / totals.clicks : 0
-  }
+  return addCalculatedMetrics(totals)
 }
 
 // Calculate daily metrics for campaign data
 export function calculateDailyMetrics(data: AdMetric[]): DailyMetrics[] {
-  return data.map(d => ({
-    ...d,
-    CTR: d.impr ? (d.clicks / d.impr) * 100 : 0,
-    CvR: d.clicks ? (d.conv / d.clicks) * 100 : 0,
-    CPA: d.conv ? d.cost / d.conv : 0,
-    ROAS: d.cost ? d.value / d.cost : 0,
-    CPC: d.clicks ? d.cost / d.clicks : 0
-  }))
+  return data.map(addCalculatedMetrics)
 }
 
 // Calculate derived metrics for a single Search Term row
 export function calculateSingleSearchTermMetrics(term: SearchTermMetric): CalculatedSearchTermMetric {
-  const { impr, clicks, cost, conv, value, keywordText } = term;
-  const CTR = impr > 0 ? (clicks / impr) * 100 : 0;
-  const CvR = clicks > 0 ? (conv / clicks) * 100 : 0;
-  const CPA = conv > 0 ? cost / conv : 0;
-  const ROAS = cost > 0 ? value / cost : 0;
-  const CPC = clicks > 0 ? cost / clicks : 0;
-
-  return {
-    ...term,
-    CTR,
-    CvR,
-    CPA,
-    ROAS,
-    CPC,
-  };
+  return addCalculatedMetrics(term)
 }
 
 // Calculate derived metrics for an array of Search Terms
 export function calculateAllSearchTermMetrics(terms: SearchTermMetric[]): CalculatedSearchTermMetric[] {
-  return terms.map(calculateSingleSearchTermMetrics);
+  return terms.map(addCalculatedMetrics)
 }
 
 // Calculate derived metrics for a single Asset Group row
 export function calculateSingleAssetGroupMetrics(assetGroup: AssetGroupMetric): CalculatedAssetGroupMetric {
-  const { impr, clicks, cost, conv, value } = assetGroup;
-  const CTR = impr > 0 ? (clicks / impr) * 100 : 0;
-  const CvR = clicks > 0 ? (conv / clicks) * 100 : 0;
-  const CPA = conv > 0 ? cost / conv : 0;
-  const ROAS = cost > 0 ? value / cost : 0;
-  const CPC = clicks > 0 ? cost / clicks : 0;
-
-  return {
-    ...assetGroup,
-    CTR,
-    CvR,
-    CPA,
-    ROAS,
-    CPC,
-  };
+  return addCalculatedMetrics(assetGroup)
 }
 
 // Calculate derived metrics for an array of Asset Groups
 export function calculateAllAssetGroupMetrics(assetGroups: AssetGroupMetric[]): CalculatedAssetGroupMetric[] {
-  return assetGroups.map(calculateSingleAssetGroupMetrics);
+  return assetGroups.map(addCalculatedMetrics)
 }
 
-// Calculate derived metrics for a single Landing Page row - Updated to match new structure
+// Calculate derived metrics for a single Landing Page row
 export function calculateSingleLandingPageMetrics(landingPage: LandingPage): CalculatedLandingPageMetric {
-  const { impressions, clicks, cost, conversions, value } = landingPage;
-  const CTR = impressions > 0 ? (clicks / impressions) * 100 : 0;
-  const CvR = clicks > 0 ? (conversions / clicks) * 100 : 0;
-  const CPA = conversions > 0 ? cost / conversions : 0;
-  const ROAS = cost > 0 ? value / cost : 0;
-  const CPC = clicks > 0 ? cost / clicks : 0;
-
-  return {
-    ...landingPage,
-    CTR,
-    CvR,
-    CPA,
-    ROAS,
-    CPC,
-  };
+  return addLandingPageCalculatedMetrics(landingPage)
 }
 
 // Calculate derived metrics for an array of Landing Pages
 export function calculateAllLandingPageMetrics(landingPages: LandingPage[]): CalculatedLandingPageMetric[] {
-  return landingPages.map(calculateSingleLandingPageMetrics);
+  return landingPages.map(addLandingPageCalculatedMetrics)
 }
 
 // Format metric values consistently

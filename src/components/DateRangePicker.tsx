@@ -41,38 +41,40 @@ export function DateRangePicker({ selectedRange, onRangeChange, className }: Dat
 
 // Helper function to get date range based on selection
 export function getDateRange(range: DateRangeOption): { startDate: Date; endDate: Date } {
+    // Use yesterday as the end date since Google Ads data typically ends yesterday
     const today = new Date()
-    const endDate = new Date(today) // Today
-    endDate.setHours(23, 59, 59, 999) // End of today
+    const endDate = new Date(today)
+    endDate.setDate(today.getDate() - 1) // Yesterday
+    endDate.setHours(23, 59, 59, 999) // End of yesterday
 
-    const startDate = new Date(today)
+    const startDate = new Date(endDate)
     startDate.setHours(0, 0, 0, 0) // Start of day
 
     switch (range) {
         case 'last-7-days':
-            startDate.setDate(today.getDate() - 6) // 7 days including today
+            startDate.setDate(endDate.getDate() - 6) // 7 days including yesterday
             break
         case 'last-14-days':
-            startDate.setDate(today.getDate() - 13) // 14 days including today
+            startDate.setDate(endDate.getDate() - 13) // 14 days including yesterday
             break
         case 'last-30-days':
-            startDate.setDate(today.getDate() - 29) // 30 days including today
+            startDate.setDate(endDate.getDate() - 29) // 30 days including yesterday
             break
         case 'last-90-days':
-            startDate.setDate(today.getDate() - 89) // 90 days including today
+            startDate.setDate(endDate.getDate() - 89) // 90 days including yesterday
             break
         case 'last-180-days':
-            startDate.setDate(today.getDate() - 179) // 180 days including today
+            startDate.setDate(endDate.getDate() - 179) // 180 days including yesterday
             break
         case 'last-365-days':
-            startDate.setDate(today.getDate() - 364) // 365 days including today
+            startDate.setDate(endDate.getDate() - 364) // 365 days including yesterday
             break
         case 'custom':
             // For now, default to last 30 days - we'll handle custom later
-            startDate.setDate(today.getDate() - 29)
+            startDate.setDate(endDate.getDate() - 29)
             break
         default:
-            startDate.setDate(today.getDate() - 29) // Default to 30 days
+            startDate.setDate(endDate.getDate() - 29) // Default to 30 days
     }
 
     return { startDate, endDate }
@@ -86,7 +88,23 @@ export function filterDataByDateRange<T extends { date: string }>(
     const { startDate, endDate } = getDateRange(dateRange)
 
     return data.filter(item => {
-        const itemDate = new Date(item.date)
-        return itemDate >= startDate && itemDate <= endDate
+        // Parse the date string (YYYY-MM-DD format) and create a Date object
+        // Use UTC to avoid timezone issues
+        const dateParts = item.date.split('-')
+        if (dateParts.length !== 3) return false
+
+        const year = parseInt(dateParts[0])
+        const month = parseInt(dateParts[1]) - 1 // Month is 0-indexed
+        const day = parseInt(dateParts[2])
+
+        // Create date in local timezone to match our startDate/endDate
+        const itemDate = new Date(year, month, day)
+
+        // Compare dates (ignoring time)
+        const itemDateOnly = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate())
+        const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+        const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate())
+
+        return itemDateOnly >= startDateOnly && itemDateOnly <= endDateOnly
     })
 } 
