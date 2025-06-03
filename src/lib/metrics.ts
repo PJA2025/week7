@@ -1,5 +1,5 @@
 // src/lib/metrics.ts
-import type { AdMetric, DailyMetrics, SearchTermMetric, AssetGroupMetric } from './types'
+import type { AdMetric, DailyMetrics, SearchTermMetric, AssetGroupMetric, LandingPage } from './types'
 
 // Interface for Search Terms with calculated metrics
 export interface CalculatedSearchTermMetric extends SearchTermMetric {
@@ -12,6 +12,15 @@ export interface CalculatedSearchTermMetric extends SearchTermMetric {
 
 // Interface for Asset Groups with calculated metrics
 export interface CalculatedAssetGroupMetric extends AssetGroupMetric {
+  CTR: number
+  CvR: number
+  CPA: number
+  ROAS: number
+  CPC: number
+}
+
+// Interface for Landing Pages with calculated metrics - Updated to match new structure
+export interface CalculatedLandingPageMetric extends LandingPage {
   CTR: number
   CvR: number
   CPA: number
@@ -109,6 +118,30 @@ export function calculateSingleAssetGroupMetrics(assetGroup: AssetGroupMetric): 
 // Calculate derived metrics for an array of Asset Groups
 export function calculateAllAssetGroupMetrics(assetGroups: AssetGroupMetric[]): CalculatedAssetGroupMetric[] {
   return assetGroups.map(calculateSingleAssetGroupMetrics);
+}
+
+// Calculate derived metrics for a single Landing Page row - Updated to match new structure
+export function calculateSingleLandingPageMetrics(landingPage: LandingPage): CalculatedLandingPageMetric {
+  const { impressions, clicks, cost, conversions, value } = landingPage;
+  const CTR = impressions > 0 ? (clicks / impressions) * 100 : 0;
+  const CvR = clicks > 0 ? (conversions / clicks) * 100 : 0;
+  const CPA = conversions > 0 ? cost / conversions : 0;
+  const ROAS = cost > 0 ? value / cost : 0;
+  const CPC = clicks > 0 ? cost / clicks : 0;
+
+  return {
+    ...landingPage,
+    CTR,
+    CvR,
+    CPA,
+    ROAS,
+    CPC,
+  };
+}
+
+// Calculate derived metrics for an array of Landing Pages
+export function calculateAllLandingPageMetrics(landingPages: LandingPage[]): CalculatedLandingPageMetric[] {
+  return landingPages.map(calculateSingleLandingPageMetrics);
 }
 
 // Format metric values consistently
