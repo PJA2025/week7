@@ -17,7 +17,7 @@ import { Loader2, Plus, X, ArrowUpDown, ArrowUp, ArrowDown, Info } from 'lucide-
 import { DataSourceType, FILTER_OPERATORS } from '@/lib/types'
 import { SHEET_TABS } from '@/lib/config'
 
-const ROW_COUNT_OPTIONS = [5, 10, 30, 50, 100]
+const ROW_COUNT_OPTIONS = [5, 10, 30, 50, 100, 200]
 const MAX_RECOMMENDED_INSIGHT_ROWS = 1000
 
 const DATA_SOURCE_LABELS: Record<DataSourceType, string> = {
