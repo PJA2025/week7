@@ -24,7 +24,13 @@ const DATA_SOURCE_LABELS: Record<DataSourceType, string> = {
     daily: 'Daily Performance',
     searchTerms: 'Search Terms',
     adGroups: 'Ad Groups',
-    assetGroups: 'Asset Groups'
+    assetGroups: 'Asset Groups',
+    negativeKeywordLists: 'Negative Keyword Lists',
+    campaignNegatives: 'Campaign Negatives',
+    adGroupNegatives: 'Ad Group Negatives',
+    campaignStatus: 'Campaign Status',
+    sharedListKeywords: 'Shared List Keywords',
+    landingPages: 'Landing Pages'
 }
 
 const DEFAULT_PROMPT = `Analyze this Google Ads data and provide actionable insights. Focus on identifying the top performing and underperforming elements, cost efficiency opportunities, and specific optimization recommendations. What patterns do you see in the performance metrics, and what concrete steps should I take to improve campaign results and reduce wasted spend?`
@@ -36,7 +42,13 @@ export default function InsightsPage() {
         daily: [],
         searchTerms: [],
         adGroups: [],
-        assetGroups: []
+        assetGroups: [],
+        negativeKeywordLists: [],
+        campaignNegatives: [],
+        adGroupNegatives: [],
+        campaignStatus: [],
+        sharedListKeywords: [],
+        landingPages: []
     }, settings.currency)
 
     // Set default prompt on component mount
