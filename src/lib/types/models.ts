@@ -55,9 +55,14 @@ export interface ModelPricing {
 
 // Model configurations
 export const AVAILABLE_MODELS: LLMModel[] = [
+    { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'openai', apiModel: 'gpt-4.1-nano-2025-04-14' },
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'openai', apiModel: 'gpt-4.1-mini-2025-04-14' },
     { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'openai', apiModel: 'gpt-4.1-2025-04-14' },
-    { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'openai', apiModel: 'gpt-4.1-nano-2025-04-14' },
+    { id: 'gpt-4o-mini-search', name: 'GPT-4o Mini Search Preview', provider: 'openai', apiModel: 'gpt-4o-mini-search-preview' },
+]
+
+export const AVAILABLE_MODELS_WITH_SEARCH: LLMModel[] = [
+    { id: 'gpt-4o-mini-search', name: 'GPT-4o Mini Search Preview', provider: 'openai', apiModel: 'gpt-4o-mini-search-preview' },
 ]
 
 // OpenAI pricing per 1M tokens (updated 2025 pricing)
@@ -65,6 +70,7 @@ export const OPENAI_PRICING: Record<string, ModelPricing> = {
     'gpt-4.1-2025-04-14': { input: 2.00, output: 8.00 },
     'gpt-4.1-mini-2025-04-14': { input: 0.40, output: 1.60 },
     'gpt-4.1-nano-2025-04-14': { input: 0.10, output: 0.40 },
+    'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
 }
 
 // Default model
@@ -76,11 +82,71 @@ export function getApiModelName(modelId: string): string {
     return model?.apiModel || DEFAULT_OPENAI_MODEL
 }
 
-export function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
+export function calculateImageTokens(width: number, height: number): number {
+    // OpenAI's exact image token calculation formula
+    // Calculate initial patches needed
+    const patchesWidth = Math.floor((width + 32 - 1) / 32)
+    const patchesHeight = Math.floor((height + 32 - 1) / 32)
+    const totalPatches = patchesWidth * patchesHeight
+
+    // If under the cap, return as-is
+    if (totalPatches <= 1536) {
+        return totalPatches
+    }
+
+    // Scale down while preserving aspect ratio
+    const shrinkFactor = Math.sqrt(1536 * 32 * 32 / (width * height))
+    const newWidth = Math.floor(width * shrinkFactor)
+    const newHeight = Math.floor(height * shrinkFactor)
+
+    // Calculate patches for scaled image
+    const scaledPatchesWidth = Math.floor((newWidth + 32 - 1) / 32)
+    const scaledPatchesHeight = Math.floor((newHeight + 32 - 1) / 32)
+
+    // Ensure we don't exceed the cap
+    const finalPatches = scaledPatchesWidth * scaledPatchesHeight
+    return Math.min(finalPatches, 1536)
+}
+
+export function getImageTokenMultiplier(model: string): number {
+    // Based on OpenAI documentation for vision models
+    const multipliers: Record<string, number> = {
+        'gpt-4.1-mini-2025-04-14': 1.62,
+        'gpt-4.1-nano-2025-04-14': 2.46,
+        'gpt-4.1-2025-04-14': 1.0, // Assuming standard rate for full GPT-4.1
+    }
+    return multipliers[model] || 1.0
+}
+
+export function calculateCost(model: string, inputTokens: number, outputTokens: number, imageTokens?: number): number {
     const pricing = OPENAI_PRICING[model]
     if (!pricing) return 0
 
-    const inputCost = (inputTokens / 1000000) * pricing.input
+    let totalInputTokens = inputTokens
+
+    // Add image tokens if provided, multiplied by model-specific factor
+    if (imageTokens && imageTokens > 0) {
+        const multiplier = getImageTokenMultiplier(model)
+        totalInputTokens += Math.round(imageTokens * multiplier)
+    }
+
+    const inputCost = (totalInputTokens / 1000000) * pricing.input
     const outputCost = (outputTokens / 1000000) * pricing.output
     return inputCost + outputCost
+}
+
+// Landing Page Analysis Types
+export interface LandingPageAnalysisRequest {
+    url: string
+    prompt: string
+    provider: LLMProvider
+    model: string
+    apiKey: string
+}
+
+export interface LandingPageAnalysisOptions {
+    url: string
+    prompt: string
+    model?: string
+    provider?: LLMProvider
 } 

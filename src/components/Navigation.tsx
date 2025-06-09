@@ -47,6 +47,15 @@ export function Navigation() {
                             Data Insights
                         </Link>
                         <Link
+                            href="/landing-pages"
+                            className={cn(
+                                "text-sm font-medium transition-colors hover:text-foreground/80",
+                                pathname === "/landing-pages" ? "text-foreground" : "text-foreground/60"
+                            )}
+                        >
+                            Landing Pages
+                        </Link>
+                        <Link
                             href="/data-test"
                             className={cn(
                                 "text-sm font-medium transition-colors hover:text-foreground/80",
