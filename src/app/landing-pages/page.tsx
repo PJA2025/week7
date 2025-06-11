@@ -4,6 +4,7 @@
 import React, { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,22 +74,7 @@ export default function LandingPagesPage() {
         }
     }, [url]) // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Auto-capture screenshot when URL changes
-    React.useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (url.trim() &&
-                isValidUrl(url) &&
-                !screenshotUrl && // Don't capture if we already have a screenshot
-                !isCapturingScreenshot && // Don't capture if already capturing
-                !isAnalyzing && // Don't capture during analysis
-                (screenshotApiKey.trim() || process.env.NEXT_PUBLIC_SCREENSHOTONE_API_KEY)) {
-                console.log('[AutoCapture] Triggering screenshot capture for URL:', url)
-                handleCaptureScreenshot()
-            }
-        }, 1000) // Debounce for 1 second after URL change
-
-        return () => clearTimeout(timeoutId)
-    }, [url, screenshotUrl, isCapturingScreenshot, isAnalyzing]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Remove auto-capture - now using manual button trigger
 
     const handleCaptureScreenshot = async () => {
         if (!url.trim()) {
@@ -153,13 +139,13 @@ export default function LandingPagesPage() {
             setIsCapturingScreenshot(false)
 
             // Get actual image dimensions for accurate token calculation (async, don't block UI)
-            const img = new Image()
+            const img = new window.Image()
             img.onload = () => {
                 console.log('[Screenshot] Actual image dimensions:', img.width, 'x', img.height, 'pixels')
                 console.log('[Screenshot] Image size:', (imageBlob.size / 1024 / 1024).toFixed(2), 'MB')
                 setScreenshotDimensions({ width: img.width, height: img.height })
             }
-            img.onerror = (err) => {
+            img.onerror = (err: Event | string) => {
                 console.warn('[Screenshot] Could not load image for dimension check:', err)
             }
             img.src = dataUrl
@@ -588,13 +574,35 @@ export default function LandingPagesPage() {
                     <div className="col-span-1">
                         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm h-[600px] flex flex-col">
                             <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-t-lg flex-shrink-0">
-                                <CardTitle className="text-xl flex items-center gap-2">
-                                    <span className="w-8 h-8 bg-white text-purple-600 rounded-full flex items-center justify-center font-bold">📸</span>
-                                    Landing Page Preview
-                                </CardTitle>
-                                <CardDescription className="text-purple-100">
-                                    📷 Auto-captured visual preview
-                                </CardDescription>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-xl flex items-center gap-2">
+                                            <span className="w-8 h-8 bg-white text-purple-600 rounded-full flex items-center justify-center font-bold">📸</span>
+                                            Landing Page Preview
+                                        </CardTitle>
+                                        <CardDescription className="text-purple-100">
+                                            📷 Click to capture visual preview
+                                        </CardDescription>
+                                    </div>
+                                    <Button
+                                        onClick={handleCaptureScreenshot}
+                                        disabled={!url.trim() || !isValidUrl(url) || isCapturingScreenshot || (!screenshotApiKey.trim() && !process.env.NEXT_PUBLIC_SCREENSHOTONE_API_KEY)}
+                                        variant="secondary"
+                                        size="sm"
+                                        className="bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all duration-200"
+                                    >
+                                        {isCapturingScreenshot ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                Capturing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                📸 Capture Screenshot
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent className="flex-1 flex flex-col space-y-4 p-6 overflow-hidden">
                                 {/* Screenshot Loading */}
@@ -638,11 +646,13 @@ export default function LandingPagesPage() {
                                             <span>✅</span>
                                             Screenshot captured
                                         </div>
-                                        <div className="flex-1 border-2 border-purple-200 rounded-lg overflow-hidden shadow-md bg-white min-h-0">
-                                            <img
+                                        <div className="flex-1 border-2 border-purple-200 rounded-lg overflow-hidden shadow-md bg-white min-h-0 relative">
+                                            <Image
                                                 src={screenshotUrl}
                                                 alt="Landing page screenshot"
-                                                className="w-full h-full object-contain"
+                                                fill
+                                                className="object-contain"
+                                                unoptimized
                                             />
                                         </div>
                                         <div className="text-sm flex-shrink-0">
@@ -662,7 +672,7 @@ export default function LandingPagesPage() {
                                     <div className="flex-1 flex items-center justify-center">
                                         <div className="text-center text-gray-500 space-y-2">
                                             <div className="text-4xl">📷</div>
-                                            <p className="text-sm">Screenshot will appear here automatically when you enter a URL</p>
+                                            <p className="text-sm">Click &ldquo;Capture Screenshot&rdquo; button above to take a screenshot</p>
                                         </div>
                                     </div>
                                 )}
@@ -830,10 +840,12 @@ export default function LandingPagesPage() {
                             >
                                 ✕
                             </button>
-                            <img
+                            <Image
                                 src={screenshotUrl}
                                 alt="Landing page screenshot - full size"
-                                className="w-full h-full object-contain"
+                                fill
+                                className="object-contain"
+                                unoptimized
                             />
                         </div>
                     </div>
