@@ -32,14 +32,14 @@ export default function LandingPagesPage() {
         return pricingMap[model.id] || model.name
     }
 
-    // Get top 10 landing pages by cost (descending)
-    const top10LandingPages = useMemo(() => {
+    // Get top 100 landing pages by cost (descending)
+    const top100LandingPages = useMemo(() => {
         if (!fetchedData?.landingPages) return []
 
         return [...fetchedData.landingPages]
             .filter(page => page.url && page.cost > 0) // Only include pages with valid URLs and cost
             .sort((a, b) => b.cost - a.cost) // Sort by cost descending
-            .slice(0, 10) // Take top 10
+            .slice(0, 100) // Take top 100
     }, [fetchedData?.landingPages])
 
     // Configuration state
@@ -82,10 +82,10 @@ export default function LandingPagesPage() {
 
     // Set default URL to highest cost landing page when data loads
     React.useEffect(() => {
-        if (top10LandingPages.length > 0 && !url) {
-            setUrl(top10LandingPages[0].url)
+        if (top100LandingPages.length > 0 && !url) {
+            setUrl(top100LandingPages[0].url)
         }
-    }, [top10LandingPages, url])
+    }, [top100LandingPages, url])
 
     // Clear screenshot when URL changes
     React.useEffect(() => {
@@ -368,7 +368,10 @@ export default function LandingPagesPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
             <div className="container mx-auto px-4 pt-20 pb-8 space-y-8">
-                <div className="text-center space-y-4">
+                <div className="text-center space-y-4 relative">
+                    <div className="absolute top-0 right-0 text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        📊 Last 30 day data
+                    </div>
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-sm font-medium shadow-lg">
                         <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
                         AI-Powered Analysis
@@ -389,99 +392,154 @@ export default function LandingPagesPage() {
                             Analysis Configuration
                         </CardTitle>
                         <CardDescription className="text-indigo-100">
-                            Configure your AI models and API settings for optimal performance
+                            Select landing page and configure your AI settings
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6 p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Left Half - Landing Page Selection */}
                             <div className="space-y-4">
-                                <Label htmlFor="model" className="text-base font-semibold text-gray-700">Analysis Model</Label>
+                                <Label htmlFor="landingPageSelect" className="text-base font-semibold text-gray-700">Select Landing Page</Label>
                                 <div className="space-y-3">
                                     <Select
-                                        value={selectedModel.id}
-                                        onValueChange={(value) => {
-                                            const model = AVAILABLE_MODELS.find(m => m.id === value)
-                                            if (model) setSelectedModel(model)
-                                        }}
+                                        value={top100LandingPages.find(page => page.url === url)?.url || ""}
+                                        onValueChange={setUrl}
                                     >
-                                        <SelectTrigger className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 hover:border-purple-300 transition-colors h-12">
-                                            <SelectValue />
+                                        <SelectTrigger className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-300 transition-colors font-medium h-12">
+                                            <SelectValue placeholder="🌐 Select from top landing pages">
+                                                {top100LandingPages.find(page => page.url === url) ? (
+                                                    <span className="truncate">
+                                                        {top100LandingPages.find(page => page.url === url)!.url.length > 60
+                                                            ? top100LandingPages.find(page => page.url === url)!.url.substring(0, 60) + '...'
+                                                            : top100LandingPages.find(page => page.url === url)!.url}
+                                                    </span>
+                                                ) : (
+                                                    "🌐 Select from top landing pages"
+                                                )}
+                                            </SelectValue>
                                         </SelectTrigger>
-                                        <SelectContent>
-                                            {AVAILABLE_MODELS.map(model => (
-                                                <SelectItem key={model.id} value={model.id}>
-                                                    {getModelDisplayName(model)}
+                                        <SelectContent className="max-h-[480px]">
+                                            {top100LandingPages.length > 0 ? (
+                                                top100LandingPages.map((page, index) => (
+                                                    <SelectItem key={page.url} value={page.url}>
+                                                        <div className="flex items-center justify-between w-full max-w-[600px]">
+                                                            <span className="truncate flex-1 mr-3">
+                                                                {page.url.length > 80 ? page.url.substring(0, 80) + '...' : page.url}
+                                                            </span>
+                                                            <span className="text-gray-500 text-sm">
+                                                                (${page.cost.toFixed(2)})
+                                                            </span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))
+                                            ) : (
+                                                <SelectItem value="no-data" disabled>
+                                                    No landing page data available
                                                 </SelectItem>
-                                            ))}
+                                            )}
                                         </SelectContent>
                                     </Select>
-                                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border-l-4 border-purple-400">
-                                        🎯 Model used for analyzing extracted copy
-                                        {screenshotUrl && (
-                                            <span className="block mt-1 text-blue-600 font-medium">
-                                                📸 Will use GPT-4o Vision if screenshot is used
-                                            </span>
-                                        )}
+
+                                    <Input
+                                        placeholder="🌐 Landing page URL (edit as needed)"
+                                        value={url}
+                                        onChange={(e) => setUrl(e.target.value)}
+                                        className="border-2 border-gray-300 bg-white hover:border-blue-400 focus:border-blue-500 transition-colors h-14 px-4 py-2 font-medium"
+                                        style={{ fontSize: '18px' }}
+                                    />
+
+                                    <p className="text-sm text-gray-600">
+                                        🎯 Select from top 100 landing pages by cost, then edit URL to remove unwanted parameters
                                     </p>
                                 </div>
                             </div>
 
+                            {/* Right Half - API Keys and Model */}
                             <div className="space-y-4">
-                                <Label htmlFor="apiKey" className="text-base font-semibold text-gray-700">OpenAI API Key</Label>
-                                <div className="space-y-3">
-                                    <div className="relative">
-                                        <Input
-                                            id="apiKey"
-                                            type="password"
-                                            placeholder="sk-... (or set env var)"
-                                            value={apiKey}
-                                            onChange={(e) => setApiKey(e.target.value)}
-                                            className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50 hover:border-orange-300 transition-colors pr-20 h-12"
-                                        />
-                                        {!apiKey.trim() && process.env.NEXT_PUBLIC_OPENAI_API_KEY && (
-                                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                                <div className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                                                    <Info className="h-3 w-3" />
-                                                    <span>Using env var</span>
-                                                </div>
-                                            </div>
-                                        )}
+                                <Label className="text-base font-semibold text-gray-700">API Configuration</Label>
+                                <div className="space-y-4">
+                                    {/* Model Selection */}
+                                    <div className="grid grid-cols-2 gap-4 items-center">
+                                        <Select
+                                            value={selectedModel.id}
+                                            onValueChange={(value) => {
+                                                const model = AVAILABLE_MODELS.find(m => m.id === value)
+                                                if (model) setSelectedModel(model)
+                                            }}
+                                        >
+                                            <SelectTrigger className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 hover:border-purple-300 transition-colors h-12">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {AVAILABLE_MODELS.map(model => (
+                                                    <SelectItem key={model.id} value={model.id}>
+                                                        {getModelDisplayName(model)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-sm text-gray-600">
+                                            🎯 Model for analyzing extracted copy
+                                            {screenshotUrl && (
+                                                <span className="block text-blue-600 font-medium">
+                                                    📸 Will use GPT-4o Vision if screenshot is used
+                                                </span>
+                                            )}
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border-l-4 border-orange-400">
-                                        🔑 Secure API authentication for AI services
-                                    </p>
-                                </div>
-                            </div>
 
-                            <div className="space-y-4">
-                                <Label htmlFor="screenshotApiKey" className="text-base font-semibold text-gray-700">ScreenshotOne API Key</Label>
-                                <div className="space-y-3">
-                                    <div className="relative">
-                                        <Input
-                                            id="screenshotApiKey"
-                                            type="password"
-                                            placeholder="Access key... (optional)"
-                                            value={screenshotApiKey}
-                                            onChange={(e) => setScreenshotApiKey(e.target.value)}
-                                            className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 hover:border-green-300 transition-colors pr-20 h-12"
-                                        />
-                                        {!screenshotApiKey.trim() && process.env.NEXT_PUBLIC_SCREENSHOTONE_API_KEY && (
-                                            <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
-                                                <div className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                                                    <Info className="h-3 w-3" />
-                                                    <span>Using env var</span>
+                                    {/* OpenAI API Key */}
+                                    <div className="grid grid-cols-2 gap-4 items-center">
+                                        <div className="relative">
+                                            <Input
+                                                id="apiKey"
+                                                type="password"
+                                                placeholder="OpenAI API Key"
+                                                value={apiKey}
+                                                onChange={(e) => setApiKey(e.target.value)}
+                                                className="border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50 hover:border-orange-300 transition-colors pr-16 h-12"
+                                            />
+                                            {!apiKey.trim() && process.env.NEXT_PUBLIC_OPENAI_API_KEY && (
+                                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                                    <div className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                                        <Info className="h-3 w-3" />
+                                                        <span>Env</span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-600">
+                                            🔑 Required for AI text analysis and copy extraction
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg border-l-4 border-green-400">
-                                        📸 Required for automatic screenshot capture. <a href="https://dash.screenshotone.com/sign-in" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Sign up</a> to get the access key and start taking screenshots.
-                                    </p>
+
+                                    {/* ScreenshotOne API Key */}
+                                    <div className="grid grid-cols-2 gap-4 items-center">
+                                        <div className="relative">
+                                            <Input
+                                                id="screenshotApiKey"
+                                                type="password"
+                                                placeholder="ScreenshotOne API Key"
+                                                value={screenshotApiKey}
+                                                onChange={(e) => setScreenshotApiKey(e.target.value)}
+                                                className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 hover:border-green-300 transition-colors pr-16 h-12"
+                                            />
+                                            {!screenshotApiKey.trim() && process.env.NEXT_PUBLIC_SCREENSHOTONE_API_KEY && (
+                                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                                    <div className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                                        <Info className="h-3 w-3" />
+                                                        <span>Env</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-600">
+                                            📸 Required for screenshot capture. <a href="https://dash.screenshotone.com/sign-in" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Sign up here</a>
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-
                     </CardContent>
                 </Card>
 
@@ -489,84 +547,39 @@ export default function LandingPagesPage() {
                 <div className="grid grid-cols-3 gap-6">
                     {/* Copy Extraction - 2/3 width */}
                     <div className="col-span-2">
-                        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm h-[600px] flex flex-col">
+                        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm h-[630px] flex flex-col">
                             <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-t-lg flex-shrink-0">
-                                <CardTitle className="text-xl flex items-center gap-2">
-                                    <span className="w-8 h-8 bg-white text-blue-600 rounded-full flex items-center justify-center font-bold">1</span>
-                                    Extract Landing Page Copy
-                                </CardTitle>
-                                <CardDescription className="text-blue-100">
-                                    🌐 Select from top 10 landing pages by cost and extract textual content using mini search preview
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-1 flex flex-col space-y-4 p-6 overflow-hidden">
-                                <div className="space-y-4 flex-shrink-0">
-                                    <div className="flex gap-3">
-                                        <Select
-                                            value={url}
-                                            onValueChange={setUrl}
-                                        >
-                                            <SelectTrigger className="flex-1 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-300 transition-colors font-bold h-16 px-4 text-2xl">
-                                                <SelectValue placeholder="🌐 Select a landing page">
-                                                    {url ? (
-                                                        <span className="truncate">
-                                                            {top10LandingPages.find(page => page.url === url)?.url || url}
-                                                        </span>
-                                                    ) : (
-                                                        "🌐 Select a landing page"
-                                                    )}
-                                                </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {top10LandingPages.length > 0 ? (
-                                                    top10LandingPages.map((page, index) => (
-                                                        <SelectItem key={page.url} value={page.url}>
-                                                            <div className="flex flex-col gap-1 w-full">
-                                                                <div className="font-medium text-sm">
-                                                                    #{index + 1} - ${page.cost.toFixed(2)} cost
-                                                                </div>
-                                                                <div className="text-xs text-gray-600 truncate max-w-[400px]">
-                                                                    {page.url}
-                                                                </div>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))
-                                                ) : (
-                                                    <SelectItem value="no-data" disabled>
-                                                        No landing page data available
-                                                    </SelectItem>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            onClick={() => window.open(url, '_blank')}
-                                            disabled={!isValidUrl(url)}
-                                            title="Open URL in new tab"
-                                            className="border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 text-blue-600 h-16 w-16"
-                                        >
-                                            <ExternalLink className="h-5 w-5" />
-                                        </Button>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-xl flex items-center gap-2">
+                                            <span className="w-8 h-8 bg-white text-blue-600 rounded-full flex items-center justify-center font-bold">1</span>
+                                            Extract Landing Page Copy
+                                        </CardTitle>
+                                        <CardDescription className="text-blue-100">
+                                            🌐 Extract textual content from the selected landing page
+                                        </CardDescription>
                                     </div>
-                                </div>
-
-                                <div className="flex justify-center flex-shrink-0">
                                     <Button
                                         onClick={handleExtractCopy}
                                         disabled={!url.trim() || isExtractingCopy || (!apiKey.trim() && !process.env.NEXT_PUBLIC_OPENAI_API_KEY)}
-                                        className="bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white font-semibold py-3 px-8 text-base shadow-lg transform hover:scale-105 transition-all duration-200 rounded-lg"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all duration-200"
                                     >
                                         {isExtractingCopy ? (
                                             <>
-                                                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                                                🔄 Extracting Copy...
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                Extracting...
                                             </>
                                         ) : (
-                                            '🚀 Get Landing Page Copy'
+                                            <>
+                                                🚀 Extract Copy
+                                            </>
                                         )}
                                     </Button>
                                 </div>
+                            </CardHeader>
+                            <CardContent className="flex-1 flex flex-col space-y-4 p-6 overflow-hidden">
 
                                 {/* Copy Error Display */}
                                 {copyError && (
@@ -581,33 +594,27 @@ export default function LandingPagesPage() {
 
                                 {/* Extracted Copy Results */}
                                 {(extractedCopy || isExtractingCopy) && (
-                                    <div className="flex-1 flex flex-col space-y-4 min-h-0">
-                                        <div className="flex-1 flex flex-col p-6 border-2 border-blue-200 rounded-xl bg-gradient-to-r from-blue-50 to-cyan-50 shadow-lg min-h-0">
-                                            <div className="text-lg font-bold mb-3 text-blue-700 flex items-center gap-2 flex-shrink-0">
-                                                <span className="text-xl">📄</span>
-                                                Extracted Copy:
+                                    <div className="flex-1 flex flex-col space-y-3 min-h-0">
+                                        {isExtractingCopy && !extractedCopy && (
+                                            <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                <span>Waiting for response...</span>
                                             </div>
-                                            {isExtractingCopy && !extractedCopy && (
-                                                <div className="flex items-center gap-2 text-muted-foreground flex-shrink-0">
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                    <span>Waiting for response...</span>
-                                                </div>
-                                            )}
+                                        )}
 
-                                            {extractedCopy && (
-                                                <div className="flex-1 bg-white p-4 rounded-lg border overflow-y-auto min-h-0">
-                                                    <div className="whitespace-pre-wrap text-sm">
-                                                        {extractedCopy}
-                                                        {isExtractingCopy && (
-                                                            <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1" />
-                                                        )}
-                                                    </div>
+                                        {extractedCopy && (
+                                            <div className="flex-1 bg-white p-4 rounded border border-gray-200 overflow-y-auto min-h-0">
+                                                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                                                    {extractedCopy}
+                                                    {isExtractingCopy && (
+                                                        <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1" />
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
+                                            </div>
+                                        )}
 
                                         {copyTokenUsage && (
-                                            <div className="flex gap-4 text-sm text-muted-foreground flex-shrink-0">
+                                            <div className="flex gap-4 text-xs text-muted-foreground flex-shrink-0">
                                                 <span>Input tokens: {copyTokenUsage.inputTokens}</span>
                                                 <span>Output tokens: {copyTokenUsage.outputTokens}</span>
                                                 <span>Total tokens: {copyTokenUsage.totalTokens}</span>
@@ -622,7 +629,7 @@ export default function LandingPagesPage() {
 
                     {/* Landing Page Preview - 1/3 width */}
                     <div className="col-span-1">
-                        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm h-[600px] flex flex-col">
+                        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm h-[630px] flex flex-col">
                             <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-t-lg flex-shrink-0">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -631,7 +638,7 @@ export default function LandingPagesPage() {
                                             Landing Page Preview
                                         </CardTitle>
                                         <CardDescription className="text-purple-100">
-                                            📷 Click to capture visual preview
+                                            📷 Visual preview of landing page
                                         </CardDescription>
                                     </div>
                                     <Button
@@ -648,7 +655,7 @@ export default function LandingPagesPage() {
                                             </>
                                         ) : (
                                             <>
-                                                📸 Capture Screenshot
+                                                📸 Capture
                                             </>
                                         )}
                                     </Button>
