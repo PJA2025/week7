@@ -51,13 +51,13 @@ export const DEFAULT_LANDING_PAGE_COPY_PROMPT = `Output the copy from the URL pr
 export const DEFAULT_LANDING_PAGE_ANALYSIS_PROMPT = `# Landing Page Checker
 Please analyze the landing page and provide insights for each section below:
 
-## 1. The Irresistible Offer (Foundation)
+## 1. The Offer (Foundation)
 
 ### 🎯 Why Your Offer Matters
-- Your offer is the **bedrock** of landing page success.
+- Your offer is the **foundation** of landing page success.
 - No amount of great design or copy can fix a weak offer.
 
-### 🧪 Components of an Irresistible Offer
+### 🧪 Components of a Great Offer
 - **Core Value Proposition:** What they get, why it matters, how and when it's delivered, and who it's for.
 - **Unique Selling Points (USPs):** Why your solution is better than alternatives.
 - **Value Boosters:** Bonuses, additional features, onboarding, or guarantees that increase perceived value.

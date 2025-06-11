@@ -1,7 +1,7 @@
 // src/app/landing-pages/page.tsx
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
@@ -16,8 +16,12 @@ import { Loader2, ExternalLink, Info } from 'lucide-react'
 import { LLMModel, AVAILABLE_MODELS, TokenUsage } from '@/lib/types/models'
 import { DEFAULT_LANDING_PAGE_ANALYSIS_PROMPT } from '@/lib/prompts'
 import { extractLandingPageCopy, analyzeLandingPageCopyWithScreenshot } from '@/lib/api-router'
+import { useSettings } from '@/lib/contexts/SettingsContext'
 
 export default function LandingPagesPage() {
+    // Get landing page data from context
+    const { fetchedData, settings } = useSettings()
+
     // Add pricing indicators to model names
     const getModelDisplayName = (model: any) => {
         const pricingMap: Record<string, string> = {
@@ -28,13 +32,23 @@ export default function LandingPagesPage() {
         return pricingMap[model.id] || model.name
     }
 
+    // Get top 10 landing pages by cost (descending)
+    const top10LandingPages = useMemo(() => {
+        if (!fetchedData?.landingPages) return []
+
+        return [...fetchedData.landingPages]
+            .filter(page => page.url && page.cost > 0) // Only include pages with valid URLs and cost
+            .sort((a, b) => b.cost - a.cost) // Sort by cost descending
+            .slice(0, 10) // Take top 10
+    }, [fetchedData?.landingPages])
+
     // Configuration state
     const [selectedModel, setSelectedModel] = useState<LLMModel>(AVAILABLE_MODELS[0])
     const [apiKey, setApiKey] = useState('')
     const [screenshotApiKey, setScreenshotApiKey] = useState('')
 
-    // Phase 1: Copy extraction
-    const [url, setUrl] = useState('https://www.monarch.edu.au/lp-diploma-of-accounting/')
+    // Phase 1: Copy extraction - default to highest cost landing page
+    const [url, setUrl] = useState('')
     const [isExtractingCopy, setIsExtractingCopy] = useState(false)
     const [extractedCopy, setExtractedCopy] = useState<string | null>(null)
     const [copyError, setCopyError] = useState<string | null>(null)
@@ -65,6 +79,13 @@ export default function LandingPagesPage() {
             return false
         }
     }
+
+    // Set default URL to highest cost landing page when data loads
+    React.useEffect(() => {
+        if (top10LandingPages.length > 0 && !url) {
+            setUrl(top10LandingPages[0].url)
+        }
+    }, [top10LandingPages, url])
 
     // Clear screenshot when URL changes
     React.useEffect(() => {
@@ -475,19 +496,48 @@ export default function LandingPagesPage() {
                                     Extract Landing Page Copy
                                 </CardTitle>
                                 <CardDescription className="text-blue-100">
-                                    🌐 Enter the URL and extract the textual content from the landing page using mini search preview
+                                    🌐 Select from top 10 landing pages by cost and extract textual content using mini search preview
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex-1 flex flex-col space-y-4 p-6 overflow-hidden">
                                 <div className="space-y-4 flex-shrink-0">
                                     <div className="flex gap-3">
-                                        <Input
-                                            placeholder="🌐 https://example.com/landing-page"
+                                        <Select
                                             value={url}
-                                            onChange={(e) => setUrl(e.target.value)}
-                                            className="flex-1 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-300 transition-colors font-bold h-16 px-4"
-                                            style={{ fontSize: '24px' }}
-                                        />
+                                            onValueChange={setUrl}
+                                        >
+                                            <SelectTrigger className="flex-1 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-300 transition-colors font-bold h-16 px-4 text-2xl">
+                                                <SelectValue placeholder="🌐 Select a landing page">
+                                                    {url ? (
+                                                        <span className="truncate">
+                                                            {top10LandingPages.find(page => page.url === url)?.url || url}
+                                                        </span>
+                                                    ) : (
+                                                        "🌐 Select a landing page"
+                                                    )}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {top10LandingPages.length > 0 ? (
+                                                    top10LandingPages.map((page, index) => (
+                                                        <SelectItem key={page.url} value={page.url}>
+                                                            <div className="flex flex-col gap-1 w-full">
+                                                                <div className="font-medium text-sm">
+                                                                    #{index + 1} - ${page.cost.toFixed(2)} cost
+                                                                </div>
+                                                                <div className="text-xs text-gray-600 truncate max-w-[400px]">
+                                                                    {page.url}
+                                                                </div>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <SelectItem value="no-data" disabled>
+                                                        No landing page data available
+                                                    </SelectItem>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
                                         <Button
                                             variant="outline"
                                             size="icon"
