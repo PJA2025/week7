@@ -46,7 +46,42 @@ When analyzing landing pages, focus on:
 - Competitive positioning and differentiation
 Provide specific, actionable recommendations with clear priorities. Use concrete examples and reference specific elements when possible. Structure your response with clear headings and bullet points for readability.`
 
-export const DEFAULT_LANDING_PAGE_COPY_PROMPT = `Output the copy from the URL provided. Do not include any HTML or CSS.`
+export const DEFAULT_LANDING_PAGE_COPY_PROMPT = `You are tasked with extracting the main marketing copy and content from a landing page. Please follow these specific instructions:
+
+1. **Extract ALL visible text content** that a user would see on the page, including:
+   - Headlines and subheadlines
+   - Body copy and descriptions
+   - Call-to-action buttons and links
+   - Navigation menu items
+   - Footer content
+   - Form labels and placeholder text
+   - Testimonials and reviews
+   - Feature lists and bullet points
+   - Pricing information
+   - Contact information
+
+2. **Organize the content logically** in the order it appears on the page (top to bottom, left to right)
+
+3. **Preserve the hierarchy** by using clear section breaks and maintaining the relationship between headlines and their associated content
+
+4. **Include context markers** like:
+   - [HEADER] for navigation/header content
+   - [HERO] for main hero section
+   - [FEATURES] for feature sections
+   - [TESTIMONIALS] for social proof
+   - [CTA] for call-to-action sections
+   - [FOOTER] for footer content
+
+5. **Exclude technical elements** like:
+   - HTML tags and CSS
+   - JavaScript code
+   - Meta tags and schema markup
+   - Hidden or display:none content
+   - Cookie notices and privacy banners (unless they're prominent)
+
+6. **Format for readability** with proper line breaks and spacing between sections
+
+Please extract the content comprehensively - don't summarize or paraphrase, capture the actual text as it appears to users.`
 
 export const DEFAULT_LANDING_PAGE_ANALYSIS_PROMPT = `# Landing Page Checker
 Please analyze the landing page and provide insights for each section below:

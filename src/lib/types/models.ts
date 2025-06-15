@@ -58,11 +58,10 @@ export const AVAILABLE_MODELS: LLMModel[] = [
     { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', provider: 'openai', apiModel: 'gpt-4.1-nano-2025-04-14' },
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'openai', apiModel: 'gpt-4.1-mini-2025-04-14' },
     { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'openai', apiModel: 'gpt-4.1-2025-04-14' },
-    { id: 'gpt-4o-mini-search', name: 'GPT-4o Mini Search Preview', provider: 'openai', apiModel: 'gpt-4o-mini-search-preview' },
 ]
 
 export const AVAILABLE_MODELS_WITH_SEARCH: LLMModel[] = [
-    { id: 'gpt-4o-mini-search', name: 'GPT-4o Mini Search Preview', provider: 'openai', apiModel: 'gpt-4o-mini-search-preview' },
+    // No search models needed for OCR-based extraction
 ]
 
 // OpenAI pricing per 1M tokens (updated 2025 pricing)
@@ -70,11 +69,13 @@ export const OPENAI_PRICING: Record<string, ModelPricing> = {
     'gpt-4.1-2025-04-14': { input: 2.00, output: 8.00 },
     'gpt-4.1-mini-2025-04-14': { input: 0.40, output: 1.60 },
     'gpt-4.1-nano-2025-04-14': { input: 0.10, output: 0.40 },
-    'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
 }
 
 // Default model
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini-2025-04-14'
+
+// Default search model (not used for OCR)
+export const DEFAULT_SEARCH_MODEL = 'gpt-4.1-nano-2025-04-14'
 
 // Helper functions for model operations
 export function getApiModelName(modelId: string): string {
@@ -113,7 +114,7 @@ export function getImageTokenMultiplier(model: string): number {
     const multipliers: Record<string, number> = {
         'gpt-4.1-mini-2025-04-14': 1.62,
         'gpt-4.1-nano-2025-04-14': 2.46,
-        'gpt-4.1-2025-04-14': 1.0, // Assuming standard rate for full GPT-4.1
+        'gpt-4.1-2025-04-14': 1.0,
     }
     return multipliers[model] || 1.0
 }
