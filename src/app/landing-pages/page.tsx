@@ -45,14 +45,15 @@ export default function LandingPagesPage() {
     // Configuration state
     const [selectedModel, setSelectedModel] = useState<LLMModel>(AVAILABLE_MODELS[0])
     const [apiKey, setApiKey] = useState('')
+    const [firecrawlApiKey, setFirecrawlApiKey] = useState('')
     const [screenshotApiKey, setScreenshotApiKey] = useState('')
 
     // Phase 1: Copy extraction - default to highest cost landing page
     const [url, setUrl] = useState('')
+    const [selectedUrl, setSelectedUrl] = useState('')
     const [isExtractingCopy, setIsExtractingCopy] = useState(false)
     const [extractedCopy, setExtractedCopy] = useState<string | null>(null)
     const [copyError, setCopyError] = useState<string | null>(null)
-    const [copyTokenUsage, setCopyTokenUsage] = useState<TokenUsage | null>(null)
 
     // Screenshot state
     const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
@@ -71,6 +72,26 @@ export default function LandingPagesPage() {
     const [analysisTokenUsage, setAnalysisTokenUsage] = useState<TokenUsage | null>(null)
     const [analysisType, setAnalysisType] = useState<'text' | 'vision' | null>(null)
 
+    const sanitizeUrl = (urlString: string): string => {
+        if (!urlString) return ''
+        const queryIndex = urlString.indexOf('?')
+        const braceIndex = urlString.indexOf('{')
+        let endIndex = -1
+
+        if (queryIndex !== -1 && braceIndex !== -1) {
+            endIndex = Math.min(queryIndex, braceIndex)
+        } else if (queryIndex !== -1) {
+            endIndex = queryIndex
+        } else if (braceIndex !== -1) {
+            endIndex = braceIndex
+        }
+
+        if (endIndex !== -1) {
+            return urlString.substring(0, endIndex)
+        }
+        return urlString
+    }
+
     const isValidUrl = (urlString: string): boolean => {
         try {
             const urlObj = new URL(urlString)
@@ -83,7 +104,9 @@ export default function LandingPagesPage() {
     // Set default URL to highest cost landing page when data loads
     React.useEffect(() => {
         if (top100LandingPages.length > 0 && !url) {
-            setUrl(top100LandingPages[0].url)
+            const initialUrl = top100LandingPages[0].url
+            setSelectedUrl(initialUrl)
+            setUrl(sanitizeUrl(initialUrl))
         }
     }, [top100LandingPages, url])
 
@@ -190,33 +213,23 @@ export default function LandingPagesPage() {
         }
 
         // Use environment variable if no API key is provided
-        const effectiveApiKey = apiKey.trim() || process.env.NEXT_PUBLIC_OPENAI_API_KEY || ''
+        const effectiveFirecrawlApiKey = firecrawlApiKey.trim() || process.env.NEXT_PUBLIC_FIRECRAWL_API_KEY || ''
 
-        if (!effectiveApiKey) {
-            setCopyError('Please enter your OpenAI API key or set NEXT_PUBLIC_OPENAI_API_KEY environment variable')
+        if (!effectiveFirecrawlApiKey) {
+            setCopyError('Please enter your Firecrawl API key or set NEXT_PUBLIC_FIRECRAWL_API_KEY environment variable')
             return
         }
 
         setIsExtractingCopy(true)
         setCopyError(null)
         setExtractedCopy('')
-        setCopyTokenUsage(null)
 
         try {
-            // Use GPT-4o Mini Search Preview for copy extraction (has web search capabilities)
-            const response = await extractLandingPageCopy(
-                url,
-                effectiveApiKey,
-                'gpt-4o-mini-search-preview',
-                (chunk: string) => {
-                    // Update copy with each chunk as it arrives
-                    setExtractedCopy(prev => (prev || '') + chunk)
-                }
-            )
+            // Use Firecrawl for copy extraction
+            const response = await extractLandingPageCopy(url)
 
-            // Set final copy and token usage
+            // Set final copy
             setExtractedCopy(response.content)
-            setCopyTokenUsage(response.usage || null)
         } catch (err) {
             console.error('Copy extraction error:', err)
             setCopyError(err instanceof Error ? err.message : 'Failed to extract landing page copy. Please try again.')
@@ -351,7 +364,6 @@ export default function LandingPagesPage() {
     const clearCopyResults = () => {
         setExtractedCopy(null)
         setCopyError(null)
-        setCopyTokenUsage(null)
         // Also clear analysis when clearing copy
         setAnalysis(null)
         setAnalysisError(null)
@@ -402,16 +414,19 @@ export default function LandingPagesPage() {
                                 <Label htmlFor="landingPageSelect" className="text-base font-semibold text-gray-700">Select Landing Page</Label>
                                 <div className="space-y-3">
                                     <Select
-                                        value={top100LandingPages.find(page => page.url === url)?.url || ""}
-                                        onValueChange={setUrl}
+                                        value={selectedUrl}
+                                        onValueChange={(value) => {
+                                            setSelectedUrl(value)
+                                            setUrl(sanitizeUrl(value))
+                                        }}
                                     >
                                         <SelectTrigger className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-300 transition-colors font-medium h-12">
                                             <SelectValue placeholder="🌐 Select from top landing pages">
-                                                {top100LandingPages.find(page => page.url === url) ? (
+                                                {selectedUrl ? (
                                                     <span className="truncate">
-                                                        {top100LandingPages.find(page => page.url === url)!.url.length > 60
-                                                            ? top100LandingPages.find(page => page.url === url)!.url.substring(0, 60) + '...'
-                                                            : top100LandingPages.find(page => page.url === url)!.url}
+                                                        {selectedUrl.length > 60
+                                                            ? selectedUrl.substring(0, 60) + '...'
+                                                            : selectedUrl}
                                                     </span>
                                                 ) : (
                                                     "🌐 Select from top landing pages"
@@ -443,7 +458,13 @@ export default function LandingPagesPage() {
                                     <Input
                                         placeholder="🌐 Landing page URL (edit as needed)"
                                         value={url}
-                                        onChange={(e) => setUrl(e.target.value)}
+                                        onChange={(e) => {
+                                            setUrl(e.target.value)
+                                            // Deselect if user types a custom URL
+                                            if (e.target.value !== sanitizeUrl(selectedUrl)) {
+                                                setSelectedUrl('')
+                                            }
+                                        }}
                                         className="border-2 border-gray-300 bg-white hover:border-blue-400 focus:border-blue-500 transition-colors h-14 px-4 py-2 font-medium"
                                         style={{ fontSize: '18px' }}
                                     />
@@ -509,7 +530,32 @@ export default function LandingPagesPage() {
                                             )}
                                         </div>
                                         <p className="text-sm text-gray-600">
-                                            🔑 Required for AI text analysis and copy extraction
+                                            🔑 Required for AI text analysis
+                                        </p>
+                                    </div>
+
+                                    {/* Firecrawl API Key */}
+                                    <div className="grid grid-cols-2 gap-4 items-center">
+                                        <div className="relative">
+                                            <Input
+                                                id="firecrawlApiKey"
+                                                type="password"
+                                                placeholder="Firecrawl API Key"
+                                                value={firecrawlApiKey}
+                                                onChange={(e) => setFirecrawlApiKey(e.target.value)}
+                                                className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-cyan-50 hover:border-blue-300 transition-colors pr-16 h-12"
+                                            />
+                                            {!firecrawlApiKey.trim() && process.env.NEXT_PUBLIC_FIRECRAWL_API_KEY && (
+                                                <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                                                    <div className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                                                        <Info className="h-3 w-3" />
+                                                        <span>Env</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-gray-600">
+                                            🔥 Required for copy extraction. <a href="https://www.firecrawl.dev/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">Get a key</a>
                                         </p>
                                     </div>
 
@@ -561,7 +607,7 @@ export default function LandingPagesPage() {
                                     </div>
                                     <Button
                                         onClick={handleExtractCopy}
-                                        disabled={!url.trim() || isExtractingCopy || (!apiKey.trim() && !process.env.NEXT_PUBLIC_OPENAI_API_KEY)}
+                                        disabled={!url.trim() || isExtractingCopy || (!firecrawlApiKey.trim() && !process.env.NEXT_PUBLIC_FIRECRAWL_API_KEY)}
                                         variant="secondary"
                                         size="sm"
                                         className="bg-white/20 hover:bg-white/30 text-white border-white/30 hover:border-white/50 transition-all duration-200"
@@ -604,21 +650,14 @@ export default function LandingPagesPage() {
 
                                         {extractedCopy && (
                                             <div className="flex-1 bg-white p-4 rounded border border-gray-200 overflow-y-auto min-h-0">
-                                                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                                                    {extractedCopy}
+                                                <div className="prose prose-sm max-w-none">
+                                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                                        {extractedCopy}
+                                                    </ReactMarkdown>
                                                     {isExtractingCopy && (
                                                         <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1" />
                                                     )}
                                                 </div>
-                                            </div>
-                                        )}
-
-                                        {copyTokenUsage && (
-                                            <div className="flex gap-4 text-xs text-muted-foreground flex-shrink-0">
-                                                <span>Input tokens: {copyTokenUsage.inputTokens}</span>
-                                                <span>Output tokens: {copyTokenUsage.outputTokens}</span>
-                                                <span>Total tokens: {copyTokenUsage.totalTokens}</span>
-                                                <span>Cost: ${copyTokenUsage.cost?.toFixed(6) || '0.000000'}</span>
                                             </div>
                                         )}
                                     </div>
@@ -772,7 +811,7 @@ export default function LandingPagesPage() {
                                     <div className="space-y-2">
                                         <Button
                                             onClick={handleAnalyzeCopy}
-                                            disabled={!extractedCopy.trim() || !analysisPrompt.trim() || isAnalyzingText || isAnalyzingVision || (!apiKey.trim() && !process.env.NEXT_PUBLIC_OPENAI_API_KEY)}
+                                            disabled={!extractedCopy.trim() || !analysisPrompt.trim() || isAnalyzing || (!apiKey.trim() && !process.env.NEXT_PUBLIC_OPENAI_API_KEY)}
                                             className="w-full bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white font-semibold py-3 px-6 text-base shadow-lg transform hover:scale-105 transition-all duration-200 rounded-lg"
                                         >
                                             {isAnalyzingText ? (
@@ -793,7 +832,7 @@ export default function LandingPagesPage() {
                                     <div className="space-y-2">
                                         <Button
                                             onClick={handleAnalyzeCopyWithVision}
-                                            disabled={!extractedCopy.trim() || !analysisPrompt.trim() || !screenshotUrl || isAnalyzingText || isAnalyzingVision || (!apiKey.trim() && !process.env.NEXT_PUBLIC_OPENAI_API_KEY)}
+                                            disabled={!extractedCopy.trim() || !analysisPrompt.trim() || !screenshotUrl || isAnalyzing || (!apiKey.trim() && !process.env.NEXT_PUBLIC_OPENAI_API_KEY)}
                                             className="w-full bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white font-semibold py-3 px-6 text-base shadow-lg transform hover:scale-105 transition-all duration-200 rounded-lg"
                                         >
                                             {isAnalyzingVision ? (
@@ -827,7 +866,7 @@ export default function LandingPagesPage() {
                             )}
 
                             {/* Analysis Results */}
-                            {(analysis || isAnalyzingText || isAnalyzingVision) && (
+                            {(analysis || isAnalyzing) && (
                                 <div className="space-y-4">
                                     <div className="p-6 border-2 border-blue-200 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
                                         <div className="text-lg font-bold mb-3 text-blue-700 flex items-center gap-2">
@@ -844,7 +883,7 @@ export default function LandingPagesPage() {
                                                 </span>
                                             )}
                                         </div>
-                                        {(isAnalyzingText || isAnalyzingVision) && !analysis && (
+                                        {isAnalyzing && !analysis && (
                                             <div className="flex items-center gap-2 text-muted-foreground">
                                                 <Loader2 className="h-4 w-4 animate-spin" />
                                                 <span>Waiting for response...</span>
@@ -856,7 +895,7 @@ export default function LandingPagesPage() {
                                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                                     {analysis}
                                                 </ReactMarkdown>
-                                                {(isAnalyzingText || isAnalyzingVision) && (
+                                                {isAnalyzing && (
                                                     <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1" />
                                                 )}
                                             </div>

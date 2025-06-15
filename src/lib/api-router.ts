@@ -15,6 +15,7 @@ import {
     createLandingPageAnalysisPrompt,
     LANDING_PAGE_ANALYSIS_SYSTEM_PROMPT
 } from './prompts'
+import FirecrawlApp from '@mendable/firecrawl-js'
 
 const MAX_RECOMMENDED_INSIGHT_ROWS = 1000
 
@@ -120,139 +121,47 @@ export async function generateOpenAIInsights(options: GenerateInsightsOptions, a
     }
 }
 
-// Extract landing page copy
-export async function extractLandingPageCopy(
-    url: string,
-    apiKey: string,
-    model?: string,
-    onChunk?: (chunk: string) => void
-): Promise<LLMResponse> {
-    // Check for API key
-    if (!apiKey) {
-        throw new Error('OpenAI API key is required. Please enter your API key.')
+// Extract landing page copy using Firecrawl
+export async function extractLandingPageCopy(url: string): Promise<LLMResponse> {
+    const firecrawlApiKey = process.env.NEXT_PUBLIC_FIRECRAWL_API_KEY
+    if (!firecrawlApiKey) {
+        throw new Error('Firecrawl API key is required. Please set NEXT_PUBLIC_FIRECRAWL_API_KEY environment variable.')
     }
 
     try {
-        // Initialize the OpenAI client
-        const openai = new OpenAI({
-            apiKey,
-            dangerouslyAllowBrowser: true // For client-side usage
+        const app = new FirecrawlApp({ apiKey: firecrawlApiKey })
+
+        console.log('[LandingPageCopy] Extracting copy from URL with Firecrawl:', url)
+
+        const scrapeResult = await app.scrapeUrl(url, {
+            formats: ['markdown'],
+            // Optional: to get only main content and remove boilerplate
+            onlyMainContent: true
         })
 
-        // Create the copy extraction prompt
-        const fullPrompt = createLandingPageCopyPrompt(url)
-
-        // Get the proper API model name
-        const apiModel = getApiModelName(model || 'gpt-4o-mini-search-preview')
-
-        // Log what we're sending
-        console.log('[LandingPageCopy] Extracting copy from URL:', url)
-        console.log('[LandingPageCopy] Using model:', apiModel)
-
-        // Prepare the completion options
-        const completionOptions: any = {
-            model: apiModel,
-            messages: [
-                { role: 'system', content: 'You are a web content extraction specialist. Extract and output the main textual content from web pages clearly and accurately.' },
-                { role: 'user', content: fullPrompt }
-            ],
-            max_tokens: 4000,
-            stream: true, // Enable streaming
-            stream_options: {
-                include_usage: true // Include usage data in streaming response
-            }
+        if (!scrapeResult.success || !scrapeResult.markdown) {
+            console.error('[LandingPageCopy] Firecrawl scrape failed:', scrapeResult)
+            throw new Error(scrapeResult.error || 'Failed to extract content with Firecrawl.')
         }
 
-        // Add web search options for search preview models
-        if (apiModel.includes('search-preview')) {
-            completionOptions.web_search_options = {}
-            console.log('[LandingPageCopy] Added web search options for search preview model')
-        }
+        console.log('[LandingPageCopy] Firecrawl extraction successful.')
 
-        // Generate content using the OpenAI SDK with streaming
-        const stream = await openai.chat.completions.create(completionOptions) as any
-
-        console.log('[LandingPageCopy] Streaming response started')
-
-        let fullContent = ''
-        let finalUsage: any = null
-
-        // Process the stream
-        for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || ''
-
-            if (content) {
-                fullContent += content
-
-                // Call the onChunk callback if provided
-                if (onChunk) {
-                    onChunk(content)
-                }
-            }
-
-            // Get usage information if available (usually in the last chunk)
-            if (chunk.usage) {
-                finalUsage = chunk.usage
-                console.log('[LandingPageCopy] Final usage from stream:', chunk.usage)
-            }
-        }
-
-        if (!fullContent) {
-            throw new Error('No content returned from OpenAI')
-        }
-
-        // Use actual usage data from OpenAI, with fallback estimation
-        let inputTokens = finalUsage?.prompt_tokens || 0
-        let outputTokens = finalUsage?.completion_tokens || 0
-        let totalTokens = finalUsage?.total_tokens || 0
-
-        // Fallback estimation if streaming didn't provide usage (backup)
-        if (!inputTokens || !outputTokens) {
-            console.log('[LandingPageCopy] No usage data from stream, estimating tokens as fallback')
-            inputTokens = inputTokens || Math.ceil(fullPrompt.length / 3.5) // More accurate estimate: ~3.5 chars per token
-            outputTokens = outputTokens || Math.ceil(fullContent.length / 3.5)
-            totalTokens = totalTokens || (inputTokens + outputTokens)
-            console.log('[LandingPageCopy] Estimated tokens - input:', inputTokens, 'output:', outputTokens)
-        }
-
-        const usage = {
-            inputTokens,
-            outputTokens,
-            totalTokens
-        }
-
-        // Calculate cost using the API model name
-        const cost = calculateCost(apiModel, usage.inputTokens, usage.outputTokens)
-
-        console.log('[LandingPageCopy] Final token usage:', usage)
-        console.log('[LandingPageCopy] Estimated cost:', `$${cost.toFixed(6)}`)
-
-        // Return the raw content (not markdown formatted for copy extraction)
+        // Note: Firecrawl does not provide token usage, so we return 0 for usage.
         return {
-            content: fullContent,
+            content: scrapeResult.markdown,
             usage: {
-                ...usage,
-                cost
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+                cost: 0
             }
         }
-
     } catch (error) {
-        console.error('[LandingPageCopy] Error extracting landing page copy:', error)
-
-        // Handle specific OpenAI errors
+        console.error('[LandingPageCopy] Error extracting landing page copy with Firecrawl:', error)
         if (error instanceof Error) {
-            if (error.message.includes('Invalid URL')) {
-                throw new Error('The provided URL could not be accessed. Please check the URL and try again.')
-            }
-            if (error.message.includes('rate limit')) {
-                throw new Error('Rate limit exceeded. Please wait a moment and try again.')
-            }
-            if (error.message.includes('API key')) {
-                throw new Error('Invalid API key. Please check your OpenAI API key and try again.')
-            }
+            throw new Error(`Firecrawl service error: ${error.message}`)
         }
-
-        throw error
+        throw new Error('An unknown error occurred with Firecrawl.')
     }
 }
 
