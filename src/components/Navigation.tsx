@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Settings } from 'lucide-react'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 
 
 export function Navigation() {
@@ -63,6 +64,15 @@ export function Navigation() {
                             )}
                         >
                             Data Test
+                        </Link>
+                        <Link
+                            href="/asteroids"
+                            className={cn(
+                                "text-sm font-medium transition-colors hover:text-foreground/80",
+                                pathname === "/asteroids" ? "text-foreground" : "text-foreground/60"
+                            )}
+                        >
+                            Asteroids
                         </Link>
                     </div>
                     <Link
