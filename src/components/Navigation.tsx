@@ -1,10 +1,10 @@
+// src/components/Navigation.tsx
 'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Settings } from 'lucide-react'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 
 
 export function Navigation() {

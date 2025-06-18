@@ -97,3 +97,5 @@ For full authenticity, include the classic sound effects, triggered by game even
 -   **Game Loop**: Use `requestAnimationFrame` for the main game loop to ensure smooth, performant animations tied to the browser's refresh rate.
 -   **Component Structure**: Encapsulate all logic within a single, self-contained `<AsteroidsGame />` component. This component will handle its own state, user input (via `useEffect` for event listeners), and rendering logic.
 -   **Physics & Collision**: Implement simple 2D physics for object movement and inertia. Bounding-box or bounding-circle collision detection is sufficient. 
+
+Doc updated jun 18 2025
