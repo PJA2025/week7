@@ -1,3 +1,4 @@
+// src/components/Navigation.tsx
 'use client'
 
 import Link from 'next/link'
@@ -63,6 +64,15 @@ export function Navigation() {
                             )}
                         >
                             Data Test
+                        </Link>
+                        <Link
+                            href="/asteroids"
+                            className={cn(
+                                "text-sm font-medium transition-colors hover:text-foreground/80",
+                                pathname === "/asteroids" ? "text-foreground" : "text-foreground/60"
+                            )}
+                        >
+                            Asteroids
                         </Link>
                     </div>
                     <Link
